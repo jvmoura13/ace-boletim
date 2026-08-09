@@ -1,1 +1,3 @@
-# ACE Boletim Aplicativo Android desenvolvido para auxiliar Agentes de Combate às Endemias no registro de visitas domiciliares, substituindo o preenchimento manual de boletins em papel. ## Objetivos - Registrar visitas domiciliares - Gerar boletins automaticamente - Salvar histórico de trabalho - Exportar para PDF - Facilitar o preenchimento em campo ## Tecnologias - Kotlin - Android Studio - Jetpack Compose - Git e GitHub
+# ACE Boletim Aplicativo Android desenvolvido para auxiliar Agentes de Combate às Endemias no registro de visitas domiciliares, substituindo o preenchimento manual de boletins em papel.
+## Objetivos - Registrar visitas domiciliares - Gerar boletins automaticamente - Salvar histórico de trabalho - Exportar para PDF - Facilitar o preenchimento em campo.
+## Tecnologias - Kotlin - Android Studio - Jetpack Compose - Git e GitHub
