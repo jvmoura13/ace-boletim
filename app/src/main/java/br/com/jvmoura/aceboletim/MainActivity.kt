@@ -1,6 +1,5 @@
 package br.com.jvmoura.aceboletim
 
-import android.R
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
@@ -19,6 +18,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.lazy.itemsIndexed
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 
 data class Tratamento(
     val a1: Int,
@@ -45,7 +47,8 @@ data class Visita(
     val pendencia: String,
     val foco: Boolean,
     val depositosEliminados: Int,
-    val tratamento: Tratamento?
+    val tratamento: Tratamento?,
+    val observacao: String
 )
 
 class MainActivity : ComponentActivity() {
@@ -288,6 +291,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun TelaVisitas() {
+        val context = LocalContext.current
 
         var visitas by remember { mutableStateOf(listOf<Visita>()) }
         var indiceEditando by remember { mutableStateOf<Int?>(null) }
@@ -303,7 +307,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
         var inspecionado by remember { mutableStateOf(true) }
         var possuiPendencia by remember { mutableStateOf(false) }
         var pendencia by remember { mutableStateOf("") }
-        var observacaoPendencia by remember { mutableStateOf("") }
+        var observacao by remember { mutableStateOf("") }
         var pendenciaExpanded by remember { mutableStateOf(false) }
 
         var foco by remember { mutableStateOf(false) }
@@ -385,6 +389,32 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
             }
 
             item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = {
+
+                            val uri = Uri.parse("geo:0,0?q=minha+localizacao")
+                            val intent = Intent(Intent.ACTION_VIEW, uri)
+                            intent.setPackage("com.google.android.apps.maps")
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.50f)
+                            .height(65.dp),
+                        shape = RoundedCornerShape(50.dp)
+                    ) {
+                        Text(
+                            text = "Abrir Google Maps",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            }
+
+            item {
                 Text("Tipo do imóvel", style = MaterialTheme.typography.titleMedium)
             }
 
@@ -437,7 +467,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                 if (checked) {
                                     possuiPendencia = false
                                     pendencia = ""
-                                    observacaoPendencia = ""
+                                    observacao = ""
                                 }
                             }
                         )
@@ -454,7 +484,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                     inspecionado = false
                                 } else {
                                     pendencia = ""
-                                    observacaoPendencia = ""
+                                    observacao = ""
                                 }
                             }
                         )
@@ -502,14 +532,6 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                     )
                                 }
                             }
-                        }
-                        if (pendencia == "Outros") {
-                            OutlinedTextField(
-                                value = observacaoPendencia,
-                                onValueChange = { observacaoPendencia = it },
-                                label = { Text("Observações") },
-                                modifier = Modifier.fillMaxWidth()
-                            )
                         }
                     }
                 }
@@ -881,6 +903,15 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                 }
             }
 
+            item {
+                OutlinedTextField(
+                    value = observacao,
+                    onValueChange = { observacao = it },
+                    label = { Text("Observações") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
 
 
             item { HorizontalDivider() }
@@ -919,7 +950,8 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                 pendencia = pendencia,
                                 foco = foco,
                                 depositosEliminados = depositosEliminados,
-                                tratamento = tratamento
+                                tratamento = tratamento,
+                                observacao = observacao
                             )
                             if (indiceEditando == null) {
                                 visitas = visitas + novaVisita
@@ -935,7 +967,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                             inspecionado = true
                             possuiPendencia = false
                             pendencia = ""
-                            observacaoPendencia = ""
+                            observacao = ""
                             numero = ""
                             complemento = ""
                             foco = false
