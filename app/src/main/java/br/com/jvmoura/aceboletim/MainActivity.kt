@@ -21,6 +21,22 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
+import android.graphics.Paint
+import android.graphics.pdf.PdfDocument
+import android.os.Environment
+import java.io.File
+import java.io.FileOutputStream
+
+data class CabecalhoBoletim(
+    val nome: String,
+    val supervisor: String,
+    val data: String,
+    val localidade: String,
+    val quarteirao: String,
+    val atividade: String,
+    val categoria: String,
+    val ciclo: String
+)
 
 data class Tratamento(
     val a1: Int,
@@ -51,6 +67,90 @@ data class Visita(
     val observacao: String
 )
 
+fun gerarBoletimPdf(
+    context: android.content.Context,
+    cabecalho: CabecalhoBoletim,
+    visitas: List<Visita>
+) {
+    val pdf = PdfDocument()
+    val paint = Paint()
+    val pageInfo = PdfDocument.PageInfo.Builder(1800, 1200, 1).create()
+    val page = pdf.startPage(pageInfo)
+    val canvas = page.canvas
+    paint.textSize = 18f
+    var y = 40
+    canvas.drawText("BOLETIM DE VISITAS", 450f, y.toFloat(), paint)
+    y += 40
+    canvas.drawText("Agente: ${cabecalho.nome}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Supervisor: ${cabecalho.supervisor}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Data: ${cabecalho.data}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Localidade: ${cabecalho.localidade}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Quarteirão: ${cabecalho.quarteirao}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Atividade: ${cabecalho.atividade}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Categoria: ${cabecalho.categoria}", 40f, y.toFloat(), paint)
+    y += 25
+    canvas.drawText("Ciclo: ${cabecalho.ciclo}", 40f, y.toFloat(), paint)
+    y += 40
+    paint.textSize = 18f
+    val colQ = 40f
+    val colRua = 100f
+    val colNum = 340f
+    val colSeq = 430f
+    val colTipo = 520f
+    val colInsp = 650f
+    val colPend = 740f
+    val colFoco = 860f
+    val colDepo = 950f
+    val colGram = 1060f
+    val colTrat = 1160f
+    canvas.drawText("Q", colQ, y.toFloat(), paint)
+    canvas.drawText("Rua", colRua, y.toFloat(), paint)
+    canvas.drawText("Nº", colNum, y.toFloat(), paint)
+    canvas.drawText("Seq", colSeq, y.toFloat(), paint)
+    canvas.drawText("Tipo", colTipo, y.toFloat(), paint)
+    canvas.drawText("Insp", colInsp, y.toFloat(), paint)
+    canvas.drawText("Pend", colPend, y.toFloat(), paint)
+    canvas.drawText("Foco", colFoco, y.toFloat(), paint)
+    canvas.drawText("Dep", colDepo, y.toFloat(), paint)
+    canvas.drawText("g", colGram, y.toFloat(), paint)
+    canvas.drawText("T", colTrat, y.toFloat(), paint)
+    y += 15
+    canvas.drawLine(40f, y.toFloat(), 1240f, y.toFloat(), paint)
+    y += 28
+    // Linhas das visitas
+    paint.textSize = 17f
+    visitas.forEach { visita ->
+        val t = visita.tratamento
+        canvas.drawText(visita.quarteirao,
+            colQ, y.toFloat(), paint)
+        canvas.drawText(visita.rua.take(18), colRua, y.toFloat(), paint)
+        canvas.drawText(visita.numero,
+            colNum, y.toFloat(), paint)
+        canvas.drawText(visita.sequencia,
+            colSeq, y.toFloat(), paint)
+        canvas.drawText(visita.tipoImovel.take(4), colTipo, y.toFloat(), paint)
+        canvas.drawText(if (visita.inspecionado) "S" else "N", colInsp, y.toFloat(), paint)
+        canvas.drawText(visita.pendencia.take(4), colPend, y.toFloat(), paint)
+        canvas.drawText(if (visita.foco) "S" else "N", colFoco, y.toFloat(), paint)
+        canvas.drawText(visita.depositosEliminados.toString(), colDepo, y.toFloat(), paint)
+        canvas.drawText(String.format("%.1f", t?.gramas ?: 0.0),
+            colGram, y.toFloat(), paint)
+        canvas.drawText((t?.total ?: 0).toString(), colTrat, y.toFloat(), paint)
+        y += 30
+        if (y > 1120) return@forEach
+    }
+    pdf.finishPage(page)
+    val pasta =
+        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+    val arquivo = File(pasta, "boletim_visitas.pdf")
+    pdf.writeTo(FileOutputStream(arquivo))
+    pdf.close() }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -993,6 +1093,29 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
+                }
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        val cabecalho = CabecalhoBoletim(
+                            nome = "João Vitor Moura",
+                            supervisor = "Supervisor",
+                            data = LocalDate.now()
+                                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                            localidade = "Localidade",
+                            quarteirao = quarteirao,
+                            atividade = "Tratamento",
+                            categoria = "Bairro",
+                            ciclo = "1º"
+                        )
+                        gerarBoletimPdf(context, cabecalho, visitas)
+                              },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Gerar PDF do Boletim")
                 }
             }
 
