@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.lazy.itemsIndexed
 
 data class Tratamento(
     val a1: Int,
@@ -37,6 +38,7 @@ data class Visita(
     val quarteirao: String,
     val rua: String,
     val numero: String,
+    val sequencia: String,
     val complemento: String,
     val tipoImovel: String,
     val inspecionado: Boolean,
@@ -288,6 +290,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
     fun TelaVisitas() {
 
         var visitas by remember { mutableStateOf(listOf<Visita>()) }
+        var indiceEditando by remember { mutableStateOf<Int?>(null) }
 
         var quarteirao by remember { mutableStateOf("") }
         var rua by remember { mutableStateOf("") }
@@ -487,7 +490,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                 listOf(
                                     "Fechado",
                                     "Recusado",
-                                    "Abandonada",
+                                    "Abandonado",
                                     "Outros"
                                 ).forEach { item ->
                                     DropdownMenuItem(
@@ -905,10 +908,11 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                 null
                             }
 
-                            visitas = visitas + Visita(
+                            val novaVisita = Visita(
                                 quarteirao = quarteirao,
                                 rua = rua,
                                 numero = numero,
+                                sequencia = sequencia,
                                 complemento = complemento,
                                 tipoImovel = tipoImovel,
                                 inspecionado = inspecionado,
@@ -917,7 +921,21 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                                 depositosEliminados = depositosEliminados,
                                 tratamento = tratamento
                             )
+                            if (indiceEditando == null) {
+                                visitas = visitas + novaVisita
+                            } else {
+                                visitas = visitas.toMutableList().also {
+                                    it[indiceEditando!!] = novaVisita
+                                }
+                                indiceEditando = null
+                            }
 
+                            indiceEditando = null
+                            // volta para o padrão da próxima visita
+                            inspecionado = true
+                            possuiPendencia = false
+                            pendencia = ""
+                            observacaoPendencia = ""
                             numero = ""
                             complemento = ""
                             foco = false
@@ -938,7 +956,8 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                         shape = RoundedCornerShape(50.dp)
                     ) {
                         Text(
-                            text = "Salvar Visita",
+                            text = if (indiceEditando == null) "Salvar Visita" else
+                                "Atualizar Visita",
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
@@ -951,9 +970,47 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                 Text("Visitas do dia", style = MaterialTheme.typography.headlineSmall)
             }
 
-            items(visitas) { visita ->
+            itemsIndexed(visitas) { index, visita ->
 
                 Card(modifier = Modifier.fillMaxWidth()) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                quarteirao = visita.quarteirao
+                                rua = visita.rua
+                                numero = visita.numero
+                                sequencia = visita.sequencia
+                                complemento = visita.complemento
+                                tipoImovel = visita.tipoImovel
+                                inspecionado = visita.inspecionado
+                                pendencia = visita.pendencia
+                                foco = visita.foco
+                                depositosEliminados = visita.depositosEliminados
+                                a1Tratado = visita.tratamento?.a1 ?: 0
+                                a2Tratado = visita.tratamento?.a2 ?: 0
+                                bTratado = visita.tratamento?.b ?: 0
+                                cTratado = visita.tratamento?.c ?: 0
+                                d1Tratado = visita.tratamento?.d1 ?: 0
+                                d2Tratado = visita.tratamento?.d2 ?: 0
+                                eTratado = visita.tratamento?.e ?: 0
+                                gramas = visita.tratamento?.gramas ?: 0.0
+                                indiceEditando = index
+                            }
+                        ) {
+                            Text("Editar")
+                        }
+                        TextButton(
+                            onClick = {
+                                visitas = visitas.filterIndexed { i, _ -> i != index }
+                            }
+                        ) {
+                            Text("Excluir", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
 
                     Column(modifier = Modifier.padding(16.dp)) {
 
