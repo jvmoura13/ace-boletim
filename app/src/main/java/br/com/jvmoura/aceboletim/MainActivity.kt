@@ -1,5 +1,6 @@
 package br.com.jvmoura.aceboletim
 
+import android.R
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
@@ -882,54 +883,65 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
             item { HorizontalDivider() }
 
             item {
-                Button(
-                    onClick = {
-
-                        val tratamento = if (tratado) {
-                            Tratamento(
-                                a1 = a1Tratado,
-                                a2 = a2Tratado,
-                                b = bTratado,
-                                c = cTratado,
-                                d1 = d1Tratado,
-                                d2 = d2Tratado,
-                                e = eTratado,
-                                gramas = gramas
-                            )
-                        } else {
-                            null
-                        }
-
-                        visitas = visitas + Visita(
-                            quarteirao = quarteirao,
-                            rua = rua,
-                            numero = numero,
-                            complemento = complemento,
-                            tipoImovel = tipoImovel,
-                            inspecionado = inspecionado,
-                            pendencia = pendencia,
-                            foco = foco,
-                            depositosEliminados = depositosEliminados,
-                            tratamento = tratamento
-                        )
-
-                        numero = ""
-                        complemento = ""
-                        foco = false
-                        depositosEliminados = 0
-                        tratado = false
-                        a1Tratado = 0
-                        a2Tratado = 0
-                        bTratado = 0
-                        cTratado = 0
-                        d1Tratado = 0
-                        d2Tratado = 0
-                        eTratado = 0
-                        gramas = 0.0
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("Salvar visita")
+                    Button(
+                        onClick = {
+
+                            val tratamento = if (tratado) {
+                                Tratamento(
+                                    a1 = a1Tratado,
+                                    a2 = a2Tratado,
+                                    b = bTratado,
+                                    c = cTratado,
+                                    d1 = d1Tratado,
+                                    d2 = d2Tratado,
+                                    e = eTratado,
+                                    gramas = gramas
+                                )
+                            } else {
+                                null
+                            }
+
+                            visitas = visitas + Visita(
+                                quarteirao = quarteirao,
+                                rua = rua,
+                                numero = numero,
+                                complemento = complemento,
+                                tipoImovel = tipoImovel,
+                                inspecionado = inspecionado,
+                                pendencia = pendencia,
+                                foco = foco,
+                                depositosEliminados = depositosEliminados,
+                                tratamento = tratamento
+                            )
+
+                            numero = ""
+                            complemento = ""
+                            foco = false
+                            depositosEliminados = 0
+                            tratado = false
+                            a1Tratado = 0
+                            a2Tratado = 0
+                            bTratado = 0
+                            cTratado = 0
+                            d1Tratado = 0
+                            d2Tratado = 0
+                            eTratado = 0
+                            gramas = 0.0
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.25f)
+                            .height(65.dp),
+                        shape = RoundedCornerShape(50.dp)
+                    ) {
+                        Text(
+                            text = "Salvar Visita",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
                 }
             }
 
