@@ -26,6 +26,11 @@ import android.graphics.pdf.PdfDocument
 import android.os.Environment
 import java.io.File
 import java.io.FileOutputStream
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import android.content.Context
+
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -220,7 +225,9 @@ fun gerarBoletimPdf(
 
     val pasta =
         context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
-    val arquivo = File(pasta, "boletim_visitas.pdf")
+    val nomeArquivo =
+        "Boletim_${cabecalho.localidade}_Q${cabecalho.quarteirao}_${cabecalho.data.replace("/", "-")}.pdf"
+    val arquivo = File(pasta, nomeArquivo)
     pdf.writeTo(FileOutputStream(arquivo))
     pdf.close() }
 class MainActivity : ComponentActivity() {
@@ -237,6 +244,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun AppACE() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var boletimIniciado by remember { mutableStateOf(false) }
     var atividade by remember { mutableStateOf("Tratamento") }
     var categoria by remember { mutableStateOf("Bairro") }
@@ -244,24 +253,92 @@ fun AppACE() {
     var local by remember { mutableStateOf("") }
     var agente by remember { mutableStateOf("") }
     var supervisor by remember { mutableStateOf("") }
+    LaunchedEffect(Unit) {
+        val rascunho = RascunhoStore.carregar(context)
+        if (rascunho != null) {
+            atividade = rascunho.cabecalho.atividade
+            categoria = rascunho.cabecalho.categoria
+            cicloAno = rascunho.cabecalho.ciclo
+            local = rascunho.cabecalho.localidade
+            agente = rascunho.cabecalho.nome
+            supervisor = rascunho.cabecalho.supervisor
+            boletimIniciado = true
+        }
+    }
+
+    fun salvarRascunho() {
+        scope.launch {
+            val cabecalho = CabecalhoBoletim(
+                nome = agente,
+                supervisor = supervisor,
+                data = "",
+                localidade = local,
+                quarteirao = "",
+                atividade = atividade,
+                categoria = categoria,
+                ciclo = cicloAno )
+            val rascunho = BoletimRascunho(
+                cabecalho = cabecalho,
+                visitas = emptyList(),
+                visitaAtual = Visita(
+                    quarteirao = "",
+                    rua = "",
+                    numero = "",
+                    sequencia = "",
+                    complemento = "",
+                    tipoImovel = "Casa",
+                    inspecionado = false,
+                    pendencia = "Fechado",
+                    foco = false,
+                    depositosEliminados = 0,
+                    tratamento = null,
+                    observacao = ""
+                ),
+                indiceAtual = 0
+            )
+            RascunhoStore.salvar(context, rascunho)
+        }
+    }
+
     BackHandler(enabled = boletimIniciado) {
         boletimIniciado = false
     }
     if (!boletimIniciado) {
         TelaNovoBoletim(
             atividade = atividade,
-            onAtividadeChange = { atividade = it },
+            onAtividadeChange = {
+                atividade = it
+                salvarRascunho()
+                                },
             categoria = categoria,
-            onCategoriaChange = { categoria = it },
+            onCategoriaChange = {
+                categoria = it
+                salvarRascunho()
+                                },
             agente = agente,
-            onAgenteChange = { agente = it },
+            onAgenteChange = {
+                agente = it
+                salvarRascunho()
+                             },
             supervisor = supervisor,
-            onSupervisorChange = { supervisor = it },
+            onSupervisorChange = {
+                supervisor = it
+                salvarRascunho()
+                                 },
             local = local,
-            onLocalChange = { local = it },
+            onLocalChange = {
+                local = it
+                salvarRascunho()
+                            },
             cicloAno = cicloAno,
-            onCicloChange = { cicloAno = it },
-            onIniciar = { boletimIniciado = true }
+            onCicloChange = {
+                cicloAno = it
+                salvarRascunho()
+                            },
+            onIniciar = {
+                boletimIniciado = true
+                salvarRascunho()
+            }
         )
      } else {
         TelaVisitas(
@@ -480,7 +557,7 @@ fun TelaNovoBoletim(
                         }
                     },
                     modifier = Modifier
-                        .fillMaxWidth(0.25f)
+                        .fillMaxWidth(0.48f)
                         .height(65.dp),
                     shape = RoundedCornerShape(50.dp)
                 ) {
@@ -536,8 +613,8 @@ fun TelaNovoBoletim(
         var d1Tratado by remember { mutableIntStateOf(0) }
         var d2Tratado by remember { mutableIntStateOf(0) }
         var eTratado by remember { mutableIntStateOf(0) }
-
         var gramas by remember { mutableDoubleStateOf(0.0) }
+        val scope = rememberCoroutineScope()
 
         LazyColumn(
             modifier = Modifier
@@ -595,7 +672,7 @@ fun TelaNovoBoletim(
                     OutlinedTextField(
                         value = complemento,
                         onValueChange = { complemento = it },
-                        label = { Text("Complemento") },
+                        label = { Text("Comple.") },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -615,12 +692,12 @@ fun TelaNovoBoletim(
                             context.startActivity(intent)
                         },
                         modifier = Modifier
-                            .fillMaxWidth(0.50f)
+                            .fillMaxWidth(0.44f)
                             .height(65.dp),
                         shape = RoundedCornerShape(50.dp)
                     ) {
                         Text(
-                            text = "Abrir Google Maps",
+                            text = "Google Maps",
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
@@ -1175,6 +1252,26 @@ fun TelaNovoBoletim(
                                 indiceEditando = null
                             }
 
+                            scope.launch {
+                                val cabecalhoRascunho = CabecalhoBoletim(
+                                    nome = agente,
+                                    supervisor = supervisor,
+                                    data = LocalDate.now() .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                                    localidade = localidade,
+                                    quarteirao = quarteirao,
+                                    atividade = atividade,
+                                    categoria = categoria,
+                                    ciclo = ciclo
+                                )
+                                val rascunho = BoletimRascunho(
+                                    cabecalho = cabecalhoRascunho,
+                                    visitas = visitas,
+                                    visitaAtual = novaVisita,
+                                    indiceAtual = if (indiceEditando == null) visitas.size
+                                    else indiceEditando!! )
+                                RascunhoStore.salvar(context, rascunho)
+                            }
+
                             indiceEditando = null
                             // volta para o padrão da próxima visita
                             inspecionado = true
@@ -1196,7 +1293,7 @@ fun TelaNovoBoletim(
                             gramas = 0.0
                         },
                         modifier = Modifier
-                            .fillMaxWidth(0.25f)
+                            .fillMaxWidth(0.45f)
                             .height(65.dp),
                         shape = RoundedCornerShape(50.dp)
                     ) {
@@ -1210,25 +1307,33 @@ fun TelaNovoBoletim(
             }
 
             item {
-                Button(
-                    onClick = {
-                        val cabecalho = CabecalhoBoletim(
-                            nome = agente,
-                            supervisor = supervisor,
-                            data = LocalDate.now()
-                                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                            localidade = localidade,
-                            quarteirao = quarteirao,
-                            atividade = atividade,
-                            categoria = categoria,
-                            ciclo = ciclo
-                        )
-                        gerarBoletimPdf(context, cabecalho, visitas)
-                              },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("Gerar PDF do Boletim")
+                    Button(
+                        onClick = {
+                            val cabecalho = CabecalhoBoletim(
+                                nome = agente,
+                                supervisor = supervisor,
+                                data = LocalDate.now()
+                                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                                localidade = localidade,
+                                quarteirao = quarteirao,
+                                atividade = atividade,
+                                categoria = categoria,
+                                ciclo = ciclo
+                            )
+                            gerarBoletimPdf(context, cabecalho, visitas)
+                            scope.launch {
+                                RascunhoStore.limpar(context)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(0.56f),
+                        shape = RoundedCornerShape(50.dp)
+                    ) {
+                        Text("Gerar PDF do Boletim")
+                    }
                 }
             }
 
