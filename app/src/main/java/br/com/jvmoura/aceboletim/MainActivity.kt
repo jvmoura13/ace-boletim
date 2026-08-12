@@ -84,8 +84,8 @@ fun gerarBoletimPdf(
     y += 60
     // ===== CABEÇALHO EM 2 BLOCOS =====
     paint.textSize = 20f
-    val esquerda = 80f
-    val direita = 1320f
+    val esquerda = 90f
+    val direita = 1450f
     val linha = 36
     // Linha 1
     canvas.drawText("Nome: ${cabecalho.nome}", esquerda, y.toFloat(), paint)
@@ -104,34 +104,49 @@ fun gerarBoletimPdf(
     canvas.drawText("Ciclo: ${cabecalho.ciclo}", direita, y.toFloat(), paint)
     y += 50
     // Linha separadora
-    canvas.drawLine(40f, y.toFloat(), 1760f, y.toFloat(), paint)
+    canvas.drawLine(20f, y.toFloat(), 1780f, y.toFloat(), paint)
     y += 30
 
     paint.textSize = 18f
     val colQ = 20f
-    val colRua = 90f
-    val colNum = 540f
-    val colSeq = 640f
-    val colTipo = 740f
-    val colInsp = 860f
-    val colPend = 960f
-    val colFoco = 1060f
-    val colDepo = 1160f
-    val colGram = 1300f
-    val colTrat = 1440f
+    val colRua = 80f
+    val colNum = 500f
+    val colSeq = 590f
+    val colComp = 680f
+    val colTipo = 840f
+    val colInsp = 920f
+    val colPend = 1000f
+    val colFoco = 1080f
+    val colA1 = 1160f
+    val colA2 = 1230f
+    val colB = 1300f
+    val colC = 1370f
+    val colD1 = 1440f
+    val colD2 = 1510f
+    val colE = 1580f
+    val colGram = 1650f
+    val colTrat = 1730f
+
     canvas.drawText("Q", colQ, y.toFloat(), paint)
     canvas.drawText("Rua", colRua, y.toFloat(), paint)
     canvas.drawText("Nº", colNum, y.toFloat(), paint)
     canvas.drawText("Seq", colSeq, y.toFloat(), paint)
+    canvas.drawText("Comp", colComp, y.toFloat(), paint)
     canvas.drawText("Tipo", colTipo, y.toFloat(), paint)
     canvas.drawText("Insp", colInsp, y.toFloat(), paint)
     canvas.drawText("Pend", colPend, y.toFloat(), paint)
     canvas.drawText("Foco", colFoco, y.toFloat(), paint)
-    canvas.drawText("Dep", colDepo, y.toFloat(), paint)
+    canvas.drawText("A1", colA1, y.toFloat(), paint)
+    canvas.drawText("A2", colA2, y.toFloat(), paint)
+    canvas.drawText("B", colB, y.toFloat(), paint)
+    canvas.drawText("C", colC, y.toFloat(), paint)
+    canvas.drawText("D1", colD1, y.toFloat(), paint)
+    canvas.drawText("D2", colD2, y.toFloat(), paint)
+    canvas.drawText("E", colE, y.toFloat(), paint)
     canvas.drawText("g", colGram, y.toFloat(), paint)
     canvas.drawText("T", colTrat, y.toFloat(), paint)
     y += 15
-    canvas.drawLine(40f, y.toFloat(), 1720f, y.toFloat(), paint)
+    canvas.drawLine(20f, y.toFloat(), 1780f, y.toFloat(), paint)
     y += 28
     // Linhas das visitas
     paint.textSize = 17f
@@ -150,11 +165,18 @@ fun gerarBoletimPdf(
             canvasAtual.drawText("Rua", colRua, 90f, paint)
             canvasAtual.drawText("Nº", colNum, 90f, paint)
             canvasAtual.drawText("Seq", colSeq, 90f, paint)
+            canvasAtual.drawText("Comp", colComp, 90f, paint)
             canvasAtual.drawText("Tipo", colTipo, 90f, paint)
             canvasAtual.drawText("Insp", colInsp, 90f, paint)
             canvasAtual.drawText("Pend", colPend, 90f, paint)
             canvasAtual.drawText("Foco", colFoco, 90f, paint)
-            canvasAtual.drawText("Dep", colDepo, 90f, paint)
+            canvasAtual.drawText("A1", colA1, 90f, paint)
+            canvasAtual.drawText("A2", colA2, 90f, paint)
+            canvasAtual.drawText("B", colB, 90f, paint)
+            canvasAtual.drawText("C", colC, 90f, paint)
+            canvasAtual.drawText("D1", colD1, 90f, paint)
+            canvasAtual.drawText("D2", colD2, 90f, paint)
+            canvasAtual.drawText("E", colE, 90f, paint)
             canvasAtual.drawText("g", colGram, 90f, paint)
             canvasAtual.drawText("T", colTrat, 90f, paint)
             canvasAtual.drawLine(20f, 105f, 1780f, 105f, paint)
@@ -174,14 +196,23 @@ fun gerarBoletimPdf(
         canvasAtual.drawText(ruaCurta, colRua, y.toFloat(), paint)
         canvasAtual.drawText(visita.numero, colNum, y.toFloat(), paint)
         canvasAtual.drawText(visita.sequencia, colSeq, y.toFloat(), paint)
+        canvasAtual.drawText(visita.complemento.take(10), colComp, y.toFloat(), paint)
         canvasAtual.drawText(tipo, colTipo, y.toFloat(), paint)
         canvasAtual.drawText(if (visita.inspecionado) "S" else "N", colInsp, y.toFloat(), paint)
         canvasAtual.drawText(if (visita.pendencia.isNotBlank()) "S" else "N", colPend, y.toFloat(), paint)
         canvasAtual.drawText(if (visita.foco) "S" else "N", colFoco, y.toFloat(), paint)
-        canvasAtual.drawText(visita.depositosEliminados.toString(), colDepo, y.toFloat(), paint)
+        canvasAtual.drawText((t?.a1 ?: 0).toString(), colA1, y.toFloat(), paint)
+        canvasAtual.drawText((t?.a2 ?: 0).toString(), colA2, y.toFloat(), paint)
+        canvasAtual.drawText((t?.b ?: 0).toString(), colB, y.toFloat(), paint)
+        canvasAtual.drawText((t?.c ?: 0).toString(), colC, y.toFloat(), paint)
+        canvasAtual.drawText((t?.d1 ?: 0).toString(), colD1, y.toFloat(), paint)
+        canvasAtual.drawText((t?.d2 ?: 0).toString(), colD2, y.toFloat(), paint)
+        canvasAtual.drawText((t?.e ?: 0).toString(), colE, y.toFloat(), paint)
         canvasAtual.drawText(String.format("%.1f", t?.gramas ?: 0.0), colGram, y.toFloat(), paint)
         canvasAtual.drawText((t?.total ?: 0).toString(), colTrat,
             y.toFloat(), paint)
+        // linha separando a visita
+        canvasAtual.drawLine(20f, y + 10f, 1780f, y + 10f, paint)
         y += 26
 
     }
@@ -207,30 +238,64 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppACE() {
     var boletimIniciado by remember { mutableStateOf(false) }
+    var atividade by remember { mutableStateOf("Tratamento") }
+    var categoria by remember { mutableStateOf("Bairro") }
+    var cicloAno by remember { mutableStateOf("") }
+    var local by remember { mutableStateOf("") }
+    var agente by remember { mutableStateOf("") }
+    var supervisor by remember { mutableStateOf("") }
     BackHandler(enabled = boletimIniciado) {
         boletimIniciado = false
     }
     if (!boletimIniciado) {
         TelaNovoBoletim(
+            atividade = atividade,
+            onAtividadeChange = { atividade = it },
+            categoria = categoria,
+            onCategoriaChange = { categoria = it },
+            agente = agente,
+            onAgenteChange = { agente = it },
+            supervisor = supervisor,
+            onSupervisorChange = { supervisor = it },
+            local = local,
+            onLocalChange = { local = it },
+            cicloAno = cicloAno,
+            onCicloChange = { cicloAno = it },
             onIniciar = { boletimIniciado = true }
         )
-    } else {
-        TelaVisitas()
+     } else {
+        TelaVisitas(
+            atividade = atividade,
+            categoria = categoria,
+            agente = agente,
+            supervisor = supervisor,
+            localidade = local,
+            ciclo = cicloAno
+        )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TelaNovoBoletim(onIniciar: () -> Unit) {
+fun TelaNovoBoletim(
+    atividade: String,
+    onAtividadeChange: (String) -> Unit,
+    categoria: String,
+    onCategoriaChange: (String) -> Unit,
+    agente: String,
+    onAgenteChange: (String) -> Unit,
+    supervisor: String,
+    onSupervisorChange: (String) -> Unit,
+    local: String,
+    onLocalChange: (String) -> Unit,
+    cicloAno: String,
+    onCicloChange: (String) -> Unit,
+    onIniciar: () -> Unit
+) {
 
-    var atividade by remember { mutableStateOf("Tratamento") }
+
     var atividadeExpanded by remember { mutableStateOf(false) }
-    var categoria by remember { mutableStateOf("Bairro") }
     var categoriaExpanded by remember { mutableStateOf(false) }
-    var cicloAno by remember { mutableStateOf("") }
-    var local by remember { mutableStateOf("") }
-    var agente by remember { mutableStateOf("") }
-    var supervisor by remember { mutableStateOf("") }
     var mostrarErro by remember { mutableStateOf(false) }
 
     val dataAtual = remember {
@@ -292,7 +357,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                         DropdownMenuItem(
                             text = { Text(it) },
                             onClick = {
-                                atividade = it
+                                onAtividadeChange(it)
                                 atividadeExpanded = false
                             }
                         )
@@ -329,7 +394,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                         DropdownMenuItem(
                             text = { Text(it) },
                             onClick = {
-                                categoria = it
+                                onCategoriaChange(it)
                                 categoriaExpanded = false
                             }
                         )
@@ -341,7 +406,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
         item {
             OutlinedTextField(
                 value = cicloAno,
-                onValueChange = { cicloAno = it },
+                onValueChange = onCicloChange,
                 label = { Text("Ciclo/Ano") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -350,7 +415,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
         item {
             OutlinedTextField(
                 value = local,
-                onValueChange = { local = it },
+                onValueChange = onLocalChange,
                 label = { Text("Localidade") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -368,7 +433,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
         item {
             OutlinedTextField(
                 value = agente,
-                onValueChange = { agente = it },
+                onValueChange = onAgenteChange,
                 label = { Text("Agente") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -377,7 +442,7 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
         item {
             OutlinedTextField(
                 value = supervisor,
-                onValueChange = { supervisor = it },
+                onValueChange = onSupervisorChange,
                 label = { Text("Supervisor") },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -431,7 +496,14 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
 }
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
-    fun TelaVisitas() {
+    fun TelaVisitas(
+        atividade: String,
+        categoria: String,
+        agente: String,
+        supervisor: String,
+        localidade: String,
+        ciclo: String
+    ) {
         val context = LocalContext.current
 
         var visitas by remember { mutableStateOf(listOf<Visita>()) }
@@ -1141,15 +1213,15 @@ fun TelaNovoBoletim(onIniciar: () -> Unit) {
                 Button(
                     onClick = {
                         val cabecalho = CabecalhoBoletim(
-                            nome = "João Vitor Moura",
-                            supervisor = "Supervisor",
+                            nome = agente,
+                            supervisor = supervisor,
                             data = LocalDate.now()
                                 .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
-                            localidade = "Localidade",
+                            localidade = localidade,
                             quarteirao = quarteirao,
-                            atividade = "Tratamento",
-                            categoria = "Bairro",
-                            ciclo = "1º"
+                            atividade = atividade,
+                            categoria = categoria,
+                            ciclo = ciclo
                         )
                         gerarBoletimPdf(context, cabecalho, visitas)
                               },
