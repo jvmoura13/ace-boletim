@@ -77,38 +77,48 @@ fun gerarBoletimPdf(
     val pageInfo = PdfDocument.PageInfo.Builder(1800, 1200, 1).create()
     val page = pdf.startPage(pageInfo)
     val canvas = page.canvas
-    paint.textSize = 18f
     var y = 40
-    canvas.drawText("BOLETIM DE VISITAS", 450f, y.toFloat(), paint)
-    y += 40
-    canvas.drawText("Agente: ${cabecalho.nome}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Supervisor: ${cabecalho.supervisor}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Data: ${cabecalho.data}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Localidade: ${cabecalho.localidade}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Quarteirão: ${cabecalho.quarteirao}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Atividade: ${cabecalho.atividade}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Categoria: ${cabecalho.categoria}", 40f, y.toFloat(), paint)
-    y += 25
-    canvas.drawText("Ciclo: ${cabecalho.ciclo}", 40f, y.toFloat(), paint)
-    y += 40
+    // ===== TÍTULO =====
+    paint.textSize = 28f
+    canvas.drawText("BOLETIM DE VISITAS", 760f, y.toFloat(), paint)
+    y += 60
+    // ===== CABEÇALHO EM 2 BLOCOS =====
+    paint.textSize = 20f
+    val esquerda = 80f
+    val direita = 1320f
+    val linha = 36
+    // Linha 1
+    canvas.drawText("Nome: ${cabecalho.nome}", esquerda, y.toFloat(), paint)
+    canvas.drawText("Categoria: ${cabecalho.categoria}", direita, y.toFloat(), paint)
+    y += linha
+    // Linha 2
+    canvas.drawText("Supervisor: ${cabecalho.supervisor}", esquerda, y.toFloat(), paint)
+    canvas.drawText("Localidade: ${cabecalho.localidade}", direita, y.toFloat(), paint)
+    y += linha
+    // Linha 3
+    canvas.drawText("Data: ${cabecalho.data}", esquerda, y.toFloat(), paint)
+    canvas.drawText("Quarteirão: ${cabecalho.quarteirao}", direita, y.toFloat(), paint)
+    y += linha
+    // Linha 4
+    canvas.drawText("Atividade: ${cabecalho.atividade}", esquerda, y.toFloat(), paint)
+    canvas.drawText("Ciclo: ${cabecalho.ciclo}", direita, y.toFloat(), paint)
+    y += 50
+    // Linha separadora
+    canvas.drawLine(40f, y.toFloat(), 1760f, y.toFloat(), paint)
+    y += 30
+
     paint.textSize = 18f
-    val colQ = 40f
-    val colRua = 100f
-    val colNum = 340f
-    val colSeq = 430f
-    val colTipo = 520f
-    val colInsp = 650f
-    val colPend = 740f
-    val colFoco = 860f
-    val colDepo = 950f
-    val colGram = 1060f
-    val colTrat = 1160f
+    val colQ = 20f
+    val colRua = 90f
+    val colNum = 540f
+    val colSeq = 640f
+    val colTipo = 740f
+    val colInsp = 860f
+    val colPend = 960f
+    val colFoco = 1060f
+    val colDepo = 1160f
+    val colGram = 1300f
+    val colTrat = 1440f
     canvas.drawText("Q", colQ, y.toFloat(), paint)
     canvas.drawText("Rua", colRua, y.toFloat(), paint)
     canvas.drawText("Nº", colNum, y.toFloat(), paint)
@@ -121,31 +131,62 @@ fun gerarBoletimPdf(
     canvas.drawText("g", colGram, y.toFloat(), paint)
     canvas.drawText("T", colTrat, y.toFloat(), paint)
     y += 15
-    canvas.drawLine(40f, y.toFloat(), 1240f, y.toFloat(), paint)
+    canvas.drawLine(40f, y.toFloat(), 1720f, y.toFloat(), paint)
     y += 28
     // Linhas das visitas
     paint.textSize = 17f
-    visitas.forEach { visita ->
+    var paginaAtual = page
+    var canvasAtual = canvas
+    visitas.forEachIndexed { index, visita ->
+        if (y > 1120) {
+            pdf.finishPage(paginaAtual)
+            val novaInfo = PdfDocument.PageInfo.Builder(1800, 1200, index + 2).create()
+            paginaAtual = pdf.startPage(novaInfo)
+            canvasAtual = paginaAtual.canvas
+            paint.textSize = 16f
+            canvasAtual.drawText("BOLETIM DE VISITAS (continuação)", 620f, 50f, paint)
+            paint.textSize = 11f
+            canvasAtual.drawText("Q", colQ, 90f, paint)
+            canvasAtual.drawText("Rua", colRua, 90f, paint)
+            canvasAtual.drawText("Nº", colNum, 90f, paint)
+            canvasAtual.drawText("Seq", colSeq, 90f, paint)
+            canvasAtual.drawText("Tipo", colTipo, 90f, paint)
+            canvasAtual.drawText("Insp", colInsp, 90f, paint)
+            canvasAtual.drawText("Pend", colPend, 90f, paint)
+            canvasAtual.drawText("Foco", colFoco, 90f, paint)
+            canvasAtual.drawText("Dep", colDepo, 90f, paint)
+            canvasAtual.drawText("g", colGram, 90f, paint)
+            canvasAtual.drawText("T", colTrat, 90f, paint)
+            canvasAtual.drawLine(20f, 105f, 1780f, 105f, paint)
+            y = 140
+        }
         val t = visita.tratamento
-        canvas.drawText(visita.quarteirao,
-            colQ, y.toFloat(), paint)
-        canvas.drawText(visita.rua.take(18), colRua, y.toFloat(), paint)
-        canvas.drawText(visita.numero,
-            colNum, y.toFloat(), paint)
-        canvas.drawText(visita.sequencia,
-            colSeq, y.toFloat(), paint)
-        canvas.drawText(visita.tipoImovel.take(4), colTipo, y.toFloat(), paint)
-        canvas.drawText(if (visita.inspecionado) "S" else "N", colInsp, y.toFloat(), paint)
-        canvas.drawText(visita.pendencia.take(4), colPend, y.toFloat(), paint)
-        canvas.drawText(if (visita.foco) "S" else "N", colFoco, y.toFloat(), paint)
-        canvas.drawText(visita.depositosEliminados.toString(), colDepo, y.toFloat(), paint)
-        canvas.drawText(String.format("%.1f", t?.gramas ?: 0.0),
-            colGram, y.toFloat(), paint)
-        canvas.drawText((t?.total ?: 0).toString(), colTrat, y.toFloat(), paint)
-        y += 30
-        if (y > 1120) return@forEach
+        val ruaCurta =
+            if (visita.rua.length > 28) visita.rua.take(28) + "…"
+            else visita.rua
+        val tipo = when (visita.tipoImovel) {
+            "Residência" -> "R"
+            "Terreno" -> "TB"
+            "Comércio" -> "C"
+            else -> "O"
+        }
+        canvasAtual.drawText(visita.quarteirao, colQ, y.toFloat(), paint)
+        canvasAtual.drawText(ruaCurta, colRua, y.toFloat(), paint)
+        canvasAtual.drawText(visita.numero, colNum, y.toFloat(), paint)
+        canvasAtual.drawText(visita.sequencia, colSeq, y.toFloat(), paint)
+        canvasAtual.drawText(tipo, colTipo, y.toFloat(), paint)
+        canvasAtual.drawText(if (visita.inspecionado) "S" else "N", colInsp, y.toFloat(), paint)
+        canvasAtual.drawText(if (visita.pendencia.isNotBlank()) "S" else "N", colPend, y.toFloat(), paint)
+        canvasAtual.drawText(if (visita.foco) "S" else "N", colFoco, y.toFloat(), paint)
+        canvasAtual.drawText(visita.depositosEliminados.toString(), colDepo, y.toFloat(), paint)
+        canvasAtual.drawText(String.format("%.1f", t?.gramas ?: 0.0), colGram, y.toFloat(), paint)
+        canvasAtual.drawText((t?.total ?: 0).toString(), colTrat,
+            y.toFloat(), paint)
+        y += 26
+
     }
-    pdf.finishPage(page)
+    pdf.finishPage(paginaAtual)
+
     val pasta =
         context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
     val arquivo = File(pasta, "boletim_visitas.pdf")
