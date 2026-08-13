@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
+import android.widget.Toast
 
 
 data class CabecalhoBoletim(
@@ -223,13 +224,25 @@ fun gerarBoletimPdf(
     }
     pdf.finishPage(paginaAtual)
 
-    val pasta =
-        context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS)
+    val pasta = android.os.Environment.getExternalStoragePublicDirectory(
+        android.os.Environment.DIRECTORY_DOWNLOADS
+    )
+
     val nomeArquivo =
         "Boletim_${cabecalho.localidade}_Q${cabecalho.quarteirao}_${cabecalho.data.replace("/", "-")}.pdf"
+
     val arquivo = File(pasta, nomeArquivo)
+
     pdf.writeTo(FileOutputStream(arquivo))
-    pdf.close() }
+    pdf.close()
+
+    Toast.makeText(
+        context,
+        "Boletim diário salvo em Downloads",
+        Toast.LENGTH_LONG
+    ).show()
+
+}
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -240,6 +253,103 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
+
+fun gerarObservacoesPdf(
+    context: android.content.Context,
+    cabecalho: CabecalhoBoletim,
+    visitas: List<Visita>
+) {
+    val pdf = PdfDocument()
+    val paint = Paint()
+
+    val pageInfo = PdfDocument.PageInfo.Builder(1200, 1800, 1).create()
+    val page = pdf.startPage(pageInfo)
+    val canvas = page.canvas
+
+    var y = 60
+
+    paint.textSize = 24f
+    paint.isFakeBoldText = true
+    canvas.drawText("RELATÓRIO DE OBSERVAÇÕES", 430f, y.toFloat(), paint)
+
+    y += 50
+
+    paint.textSize = 16f
+    paint.isFakeBoldText = false
+
+    canvas.drawText("Agente: ${cabecalho.nome}", 60f, y.toFloat(), paint)
+    y += 24
+    canvas.drawText("Data: ${cabecalho.data}", 60f, y.toFloat(), paint)
+    y += 24
+    canvas.drawText("Localidade: ${cabecalho.localidade}", 60f, y.toFloat(), paint)
+    y += 24
+    canvas.drawText("Total de observações: ${visitas.size}", 60f, y.toFloat(), paint)
+
+    y += 30
+    canvas.drawLine(40f, y.toFloat(), 1160f, y.toFloat(), paint)
+    y += 30
+
+    visitas.forEach { visita ->
+        paint.isFakeBoldText = true
+        canvas.drawText(
+            "Rua: ${visita.rua} • Q${visita.quarteirao}",
+            60f,
+            y.toFloat(),
+            paint
+        )
+
+        y += 24
+
+        paint.isFakeBoldText = false
+
+        val detalhes = buildString {
+            append("Imóvel: ${visita.numero}")
+
+            if (visita.sequencia.isNotBlank()) {
+                append(" • Seq. ${visita.sequencia}")
+            }
+
+            if (visita.complemento.isNotBlank()) {
+                append(" • Comp. ${visita.complemento}")
+            }
+        }
+
+        canvas.drawText(detalhes, 60f, y.toFloat(), paint)
+
+        y += 24
+
+        canvas.drawText("Observação:", 60f, y.toFloat(), paint)
+        y += 22
+
+        val obs = visita.observacao.ifBlank { "-" }
+        canvas.drawText(obs, 80f, y.toFloat(), paint)
+
+        y += 36
+
+        canvas.drawLine(40f, y.toFloat(), 1160f, y.toFloat(), paint)
+        y += 30
+    }
+
+    pdf.finishPage(page)
+
+    val fileName = "Observacoes_${cabecalho.data.replace("/", "-")}.pdf"
+
+    val file = java.io.File(
+        android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        ),
+        fileName
+    )
+
+    pdf.writeTo(java.io.FileOutputStream(file))
+    pdf.close()
+
+    android.widget.Toast.makeText(
+        context,
+        "PDF de observações salvo em Downloads",
+        android.widget.Toast.LENGTH_LONG
+    ).show()
 }
 
 @Composable
@@ -1304,7 +1414,11 @@ fun TelaNovoBoletim(
                                 categoria = categoria,
                                 ciclo = ciclo
                             )
+                            val visitasComObservacao = visitas.filter { it.observacao.isNotBlank() }
                             gerarBoletimPdf(context, cabecalho, visitas)
+                            if (visitasComObservacao.isNotEmpty()) {
+                                gerarObservacoesPdf(context, cabecalho, visitasComObservacao)
+                            }
                             scope.launch {
                                 RascunhoStore.limpar(context)
                             }
