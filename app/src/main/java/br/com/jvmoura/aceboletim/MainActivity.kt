@@ -64,7 +64,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.exifinterface.media.ExifInterface
 import android.graphics.Matrix
 import android.graphics.Bitmap
-
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.OutlinedTextFieldDefaults
 data class CabecalhoBoletim(
     val nome: String,
     val supervisor: String,
@@ -648,7 +653,7 @@ fun HomeScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(120.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF1E3A8A))
                             .clickable {
@@ -756,7 +761,7 @@ fun HomeScreen(
                         Text(
                             cargoAgente,
                             color = Color(0xFFCBD5E1),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodySmall
                         )
 
                         Spacer(Modifier.height(4.dp))
@@ -768,7 +773,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(45.dp),
+                                .height(58.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -789,7 +794,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(45.dp),
+                                .height(58.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -811,7 +816,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(45.dp),
+                                .height(58.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -1349,25 +1354,140 @@ fun TelaNovoBoletim(
         )
     }
 
+    val campoColors = OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedBorderColor = Color(0xFF6EA8FF),
+        unfocusedBorderColor = Color(0xFF5E6A82),
+        focusedLabelColor = Color(0xFF6EA8FF),
+        unfocusedLabelColor = Color(0xFF9AA5BA),
+        cursorColor = Color(0xFF6EA8FF)
+    )
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF050816),
+                        Color(0xFF0A1024),
+                        Color(0xFF0D132B)
+                    )
+                )
+            )
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+        verticalArrangement = Arrangement.spacedBy(14.dp)
 
+    )
+    {
         item {
-            Box(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Boletim Díario",
-                    style = MaterialTheme.typography.headlineLarge
+                    text = "Boletim Diário",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Confira os dados antes de iniciar o boletim",
+                    color = Color(0xFF9AA5BA),
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
 
+
+        item {
+            OutlinedTextField(
+                value = agente,
+                onValueChange = onAgenteChange,
+                label = { Text("Agente") },
+                shape = RoundedCornerShape(30.dp),
+                colors = campoColors,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = supervisor,
+                onValueChange = onSupervisorChange,
+                label = { Text("Supervisor") },
+                shape = RoundedCornerShape(30.dp),
+                colors = campoColors,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = dataAtual,
+                onValueChange = {},
+                readOnly = true,
+                shape = RoundedCornerShape(30.dp),
+                colors = campoColors,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = local,
+                onValueChange = onLocalChange,
+                label = { Text("Localidade") },
+                shape = RoundedCornerShape(30.dp),
+                colors = campoColors,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+
+
+        item {
+            ExposedDropdownMenuBox(
+                expanded = categoriaExpanded,
+                onExpandedChange = {
+                    categoriaExpanded =
+                        !categoriaExpanded
+                }
+            ) {
+                OutlinedTextField(
+                    value = categoria,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Categoria") },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriaExpanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = categoriaExpanded,
+                    onDismissRequest = { categoriaExpanded = false }
+                ) {
+                    listOf("Bairro", "Rural").forEach {
+                        DropdownMenuItem(
+                            text = { Text(it) },
+
+                            onClick = {
+                                onCategoriaChange(it)
+                                categoriaExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         item {
             ExposedDropdownMenuBox(
@@ -1382,6 +1502,8 @@ fun TelaNovoBoletim(
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Atividade") },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(
                             expanded =
@@ -1412,86 +1534,17 @@ fun TelaNovoBoletim(
         }
 
         item {
-            ExposedDropdownMenuBox(
-                expanded = categoriaExpanded,
-                onExpandedChange = {
-                    categoriaExpanded =
-                        !categoriaExpanded
-                }
-            ) {
-                OutlinedTextField(
-                    value = categoria,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoria") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriaExpanded)
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = categoriaExpanded,
-                    onDismissRequest = { categoriaExpanded = false }
-                ) {
-                    listOf("Bairro", "Rural").forEach {
-                        DropdownMenuItem(
-                            text = { Text(it) },
-                            onClick = {
-                                onCategoriaChange(it)
-                                categoriaExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
             OutlinedTextField(
                 value = cicloAno,
                 onValueChange = onCicloChange,
                 label = { Text("Ciclo/Ano") },
+                shape = RoundedCornerShape(30.dp),
+                colors = campoColors,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
-        item {
-            OutlinedTextField(
-                value = local,
-                onValueChange = onLocalChange,
-                label = { Text("Localidade") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
 
-        item {
-            OutlinedTextField(
-                value = dataAtual,
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = agente,
-                onValueChange = onAgenteChange,
-                label = { Text("Agente") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = supervisor,
-                onValueChange = onSupervisorChange,
-                label = { Text("Supervisor") },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
 
         item {
             if (mostrarErro) {
@@ -1527,11 +1580,15 @@ fun TelaNovoBoletim(
                     modifier = Modifier
                         .fillMaxWidth(0.48f)
                         .height(65.dp),
-                    shape = RoundedCornerShape(50.dp)
+                    shape = RoundedCornerShape(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF6F4BD8)
+                    )
                 ) {
                     Text(
                         text = "Iniciar Boletim",
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1596,8 +1653,18 @@ fun TelaNovoBoletim(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF050816),
+                            Color(0xFF0A1024),
+                            Color(0xFF0D132B)
+                        )
+                    )
+                )
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
 
             item {
@@ -1607,7 +1674,9 @@ fun TelaNovoBoletim(
                 ) {
                     Text(
                         text = "Visitas do Dia",
-                        style = MaterialTheme.typography.headlineLarge
+                        color = Color.White,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -1617,7 +1686,16 @@ fun TelaNovoBoletim(
                     value = quarteirao,
                     onValueChange = { quarteirao = it },
                     label = { Text("Quarteirão") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF6EA8FF),
+                        unfocusedBorderColor = Color(0xFF65708A),
+                        focusedLabelColor = Color(0xFF6EA8FF),
+                        unfocusedLabelColor = Color(0xFFAAB3C8)
+                    )
                 )
             }
 
@@ -1626,40 +1704,74 @@ fun TelaNovoBoletim(
                     value = rua,
                     onValueChange = { rua = it },
                     label = { Text("Rua") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF6EA8FF),
+                        unfocusedBorderColor = Color(0xFF65708A),
+                        focusedLabelColor = Color(0xFF6EA8FF),
+                        unfocusedLabelColor = Color(0xFFAAB3C8)
+                    )
                 )
-            }
-
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = numero,
-                        onValueChange = { numero = it },
-                        label = { Text("Número") },
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedTextField(
-                        value = sequencia,
-                        onValueChange = { sequencia = it },
-                        label = { Text("Sequência") },
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    OutlinedTextField(
-                        value = complemento,
-                        onValueChange = { complemento = it },
-                        label = { Text("Comple.") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
             }
 
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+
+                    OutlinedTextField(
+                        value = numero,
+                        onValueChange = { numero = it },
+                        label = { Text("Nº") },
+                        modifier = Modifier.weight(0.9f),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF6EA8FF),
+                            unfocusedBorderColor = Color(0xFF65708A),
+                            focusedLabelColor = Color(0xFF6EA8FF),
+                            unfocusedLabelColor = Color(0xFFAAB3C8)
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = sequencia,
+                        onValueChange = { sequencia = it },
+                        label = { Text("Seq.") },
+                        modifier = Modifier.weight(0.9f),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF6EA8FF),
+                            unfocusedBorderColor = Color(0xFF65708A),
+                            focusedLabelColor = Color(0xFF6EA8FF),
+                            unfocusedLabelColor = Color(0xFFAAB3C8)
+                        )
+                    )
+
+                    OutlinedTextField(
+                        value = complemento,
+                        onValueChange = { complemento = it },
+                        label = { Text("Com.") },
+                        modifier = Modifier.weight(0.9f),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF6EA8FF),
+                            unfocusedBorderColor = Color(0xFF65708A),
+                            focusedLabelColor = Color(0xFF6EA8FF),
+                            unfocusedLabelColor = Color(0xFFAAB3C8)
+                        )
+                    )
+
                     Button(
                         onClick = {
 
@@ -1669,17 +1781,19 @@ fun TelaNovoBoletim(
                             context.startActivity(intent)
                         },
                         modifier = Modifier
-                            .fillMaxWidth(0.44f)
-                            .height(65.dp),
+                            .weight(1f)
+                            .height(56.dp),
                         shape = RoundedCornerShape(50.dp)
+
                     ) {
                         Text(
-                            text = "Google Maps",
+                            text = "Maps",
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
                 }
             }
+
 
             item {
                 Text("Tipo do imóvel", style = MaterialTheme.typography.titleMedium)
@@ -1688,15 +1802,59 @@ fun TelaNovoBoletim(
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
+                        shape = RoundedCornerShape(50.dp),
                         selected = tipoImovel == "Residência",
                         onClick = { tipoImovel = "Residência" },
-                        label = { Text("Residência") }
+                        label = {
+                            Text(
+                                text = "Residência",
+                                color = Color.White
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            labelColor = Color(0xFFD0C8DD),
+                            selectedContainerColor = Color(0xFF5E3A9E),
+                            selectedLabelColor = Color.White
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = tipoImovel == "Residência",
+                            borderColor = Color(0xFF77738A),
+                            selectedBorderColor = Color(0xFF9C6CFF),
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 2.dp
+                        )
                     )
 
                     FilterChip(
                         selected = tipoImovel == "Terreno",
                         onClick = { tipoImovel = "Terreno" },
-                        label = { Text("Terreno") }
+
+                        label = {
+                            Text(
+                                text = "Terreno",
+                                color = Color.White
+                            )
+                        },
+
+                        shape = RoundedCornerShape(50.dp),
+
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            labelColor = Color(0xFFD0C8DD),
+                            selectedContainerColor = Color(0xFF5E3A9E),
+                            selectedLabelColor = Color.White
+                        ),
+
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = tipoImovel == "Terreno",
+                            borderColor = Color(0xFF77738A),
+                            selectedBorderColor = Color(0xFF9C6CFF),
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 2.dp
+                        )
                     )
                 }
             }
@@ -1706,13 +1864,61 @@ fun TelaNovoBoletim(
                     FilterChip(
                         selected = tipoImovel == "Comércio",
                         onClick = { tipoImovel = "Comércio" },
-                        label = { Text("Comércio") }
+
+                        label = {
+                            Text(
+                                text = "Comércio",
+                                color = Color.White
+                            )
+                        },
+
+                        shape = RoundedCornerShape(50.dp),
+
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            labelColor = Color(0xFFD0C8DD),
+                            selectedContainerColor = Color(0xFF5E3A9E),
+                            selectedLabelColor = Color.White
+                        ),
+
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = tipoImovel == "Comércio",
+                            borderColor = Color(0xFF77738A),
+                            selectedBorderColor = Color(0xFF9C6CFF),
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 2.dp
+                        )
                     )
 
                     FilterChip(
                         selected = tipoImovel == "Outros",
                         onClick = { tipoImovel = "Outros" },
-                        label = { Text("Outros") }
+
+                        label = {
+                            Text(
+                                text = "Outros",
+                                color = Color.White
+                            )
+                        },
+
+                        shape = RoundedCornerShape(50.dp),
+
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            labelColor = Color(0xFFD0C8DD),
+                            selectedContainerColor = Color(0xFF5E3A9E),
+                            selectedLabelColor = Color.White
+                        ),
+
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = tipoImovel == "Outros",
+                            borderColor = Color(0xFF77738A),
+                            selectedBorderColor = Color(0xFF9C6CFF),
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 2.dp
+                        )
                     )
                 }
             }
@@ -1736,9 +1942,17 @@ fun TelaNovoBoletim(
                                     pendencia = ""
                                     observacao = ""
                                 }
-                            }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF7E57C2),
+                                uncheckedColor = Color(0xFF77738A),
+                                checkmarkColor = Color.White
+                            )
                         )
-                        Text("Imóvel inspecionado")
+                        Text(
+                            "Imóvel inspecionado",
+                            color = Color(0xFFE0DCE8)
+                        )
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -1753,9 +1967,17 @@ fun TelaNovoBoletim(
                                     pendencia = ""
                                     observacao = ""
                                 }
-                            }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF7E57C2),
+                                uncheckedColor = Color(0xFF77738A),
+                                checkmarkColor = Color.White
+                            )
                         )
-                        Text("Pendência")
+                        Text(
+                            "Pendência",
+                            color = Color(0xFFE0DCE8)
+                        )
                     }
                     if (possuiPendencia) {
                         ExposedDropdownMenuBox(
@@ -1768,12 +1990,33 @@ fun TelaNovoBoletim(
                                 value = pendencia,
                                 onValueChange = {},
                                 readOnly = true,
-                                label = { Text("Tipo de pendência") },
+
+                                label = {
+                                    Text("Tipo de pendência")
+                                },
+
                                 trailingIcon = {
                                     ExposedDropdownMenuDefaults.TrailingIcon(
                                         expanded = pendenciaExpanded
                                     )
                                 },
+
+                                shape = RoundedCornerShape(20.dp),
+
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+
+                                    focusedLabelColor = Color(0xFFB388FF),
+                                    unfocusedLabelColor = Color(0xFFB0A9C0),
+
+                                    focusedBorderColor = Color(0xFF9C6CFF),
+                                    unfocusedBorderColor = Color(0xFF77738A),
+
+                                    focusedTrailingIconColor = Color(0xFFB388FF),
+                                    unfocusedTrailingIconColor = Color(0xFF77738A)
+                                ),
+
                                 modifier = Modifier
                                     .menuAnchor()
                                     .fillMaxWidth()
@@ -1782,7 +2025,16 @@ fun TelaNovoBoletim(
                                 expanded = pendenciaExpanded,
                                 onDismissRequest = {
                                     pendenciaExpanded = false
-                                }
+                                },
+                                modifier = Modifier.clip(
+                                    RoundedCornerShape(20.dp)
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                containerColor = Color(0xFF11182B),
+                                border = BorderStroke(
+                                    1.dp,
+                                    Color(0xFF77738A)
+                                )
                             ) {
                                 listOf(
                                     "Fechado",
@@ -1791,7 +2043,12 @@ fun TelaNovoBoletim(
                                     "Outros"
                                 ).forEach { item ->
                                     DropdownMenuItem(
-                                        text = { Text(item) },
+                                        text = {
+                                            Text(
+                                                text = item,
+                                                color = Color(0xFFE0DCE8)
+                                            )
+                                        },
                                         onClick = {
                                             pendencia = item
                                             pendenciaExpanded = false
@@ -1817,10 +2074,18 @@ fun TelaNovoBoletim(
                     ) {
                         Checkbox(
                             checked = tratado,
-                            onCheckedChange = { tratado = it }
+                            onCheckedChange = { tratado = it },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF7E57C2),
+                                uncheckedColor = Color(0xFF77738A),
+                                checkmarkColor = Color.White
+                            )
                         )
 
-                        Text("Depósitos tratados")
+                        Text(
+                            text = "Depósitos tratados",
+                            color = Color.White
+                        )
                     }
 
                     if (tratado) {
@@ -1829,6 +2094,7 @@ fun TelaNovoBoletim(
 
                         Text(
                             text = "Quantidade por tipo",
+                            color = Color.White,
                             style = MaterialTheme.typography.titleMedium
                         )
 
@@ -1839,7 +2105,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "A1",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -1853,6 +2120,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = a1Tratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -1870,7 +2138,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "A2",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -1884,6 +2153,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = a2Tratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -1901,7 +2171,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "B",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -1915,6 +2186,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = bTratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -1932,7 +2204,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "C",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -1946,6 +2219,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = cTratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -1963,7 +2237,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "D1",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -1977,6 +2252,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = d1Tratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -1994,7 +2270,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "D2",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -2008,6 +2285,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = d2Tratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -2025,7 +2303,8 @@ fun TelaNovoBoletim(
                         ) {
                             Text(
                                 text = "E",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                color = Color.White
                             )
 
                             Button(
@@ -2039,6 +2318,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = eTratado.toString(),
                                 modifier = Modifier.padding(horizontal = 16.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.titleMedium
                             )
 
@@ -2053,6 +2333,7 @@ fun TelaNovoBoletim(
 
                         Text(
                             text = "Larvicida utilizado",
+                            color = Color.White,
                             style = MaterialTheme.typography.titleMedium
                         )
 
@@ -2075,6 +2356,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = "${gramas.toString().replace(".", ",")} g",
                                 modifier = Modifier.padding(horizontal = 24.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.headlineSmall
                             )
 
@@ -2107,9 +2389,18 @@ fun TelaNovoBoletim(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = foco,
-                        onCheckedChange = { foco = it }
+                        onCheckedChange = { foco = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF7E57C2),
+                            uncheckedColor = Color(0xFF77738A),
+                            checkmarkColor = Color.White
+                        )
                     )
-                    Text("Foco encontrado")
+
+                    Text(
+                        text = "Foco encontrado",
+                        color = Color.White
+                    )
                 }
             }
 
@@ -2128,10 +2419,18 @@ fun TelaNovoBoletim(
                                 } else if (depositosEliminados == 0) {
                                     depositosEliminados = 1
                                 }
-                            }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = Color(0xFF7E57C2),
+                                uncheckedColor = Color(0xFF77738A),
+                                checkmarkColor = Color.White
+                            )
                         )
 
-                        Text("Depósitos eliminados")
+                        Text(
+                            text = "Depósitos eliminados",
+                            color = Color.White
+                        )
                     }
 
                     if (depositosEliminados > 0) {
@@ -2155,6 +2454,7 @@ fun TelaNovoBoletim(
                             Text(
                                 text = depositosEliminados.toString(),
                                 modifier = Modifier.padding(horizontal = 24.dp),
+                                color = Color.White,
                                 style = MaterialTheme.typography.headlineSmall
                             )
 
@@ -2174,9 +2474,26 @@ fun TelaNovoBoletim(
                 OutlinedTextField(
                     value = observacao,
                     onValueChange = { observacao = it },
-                    label = { Text("Observações") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 3
+                    label = {
+                        Text(
+                            text = "Observações",
+                            color = Color(0xFFB8B5C7)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(130.dp),
+                    minLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF9C6CFF),
+                        unfocusedBorderColor = Color(0xFF77738A),
+                        focusedLabelColor = Color(0xFFB58CFF),
+                        unfocusedLabelColor = Color(0xFFB8B5C7),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = Color(0xFFB58CFF)
+                    ),
+                    shape = RoundedCornerShape(24.dp)
                 )
             }
 
