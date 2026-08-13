@@ -53,6 +53,17 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.DateRange
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.exifinterface.media.ExifInterface
+import android.graphics.Matrix
+import android.graphics.Bitmap
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -395,6 +406,10 @@ fun AppACE() {
     var nomeAgente by remember { mutableStateOf("") }
     var cargoAgente by remember { mutableStateOf("Agente de Combate a Endemias") }
     var localidadeAgente by remember { mutableStateOf("") }
+    var atividadeAgente by remember { mutableStateOf("") }
+    var categoriaAgente by remember { mutableStateOf("") }
+    var cicloAgente by remember { mutableStateOf("") }
+    var supervisorAgente by remember { mutableStateOf("") }
     val dataHoje = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -408,6 +423,35 @@ fun AppACE() {
     var visitasSalvas by remember { mutableStateOf(listOf<Visita>()) }
     var visitas by remember { mutableStateOf(listOf<Visita>()) }
     var telaAtual by remember { mutableStateOf("inicio") }
+
+
+    var fotoAgenteUri by remember {
+        mutableStateOf(
+            context.getSharedPreferences("ace_config", Context.MODE_PRIVATE)
+                .getString("foto_agente", null)
+        )
+    }
+
+    val seletorFoto = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            fotoAgenteUri = uri.toString()
+
+            context.getSharedPreferences("ace_config", Context.MODE_PRIVATE)
+                .edit()
+                .putString("foto_agente", uri.toString())
+                .apply()
+
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         val rascunho = RascunhoStore.carregar(context)
@@ -434,8 +478,29 @@ fun AppACE() {
                 it.observacao.isNotBlank() },
             focos = visitasSalvas.count { it.foco },
             nomeAgente = nomeAgente,
+            onNomeAgenteChange = {
+                nomeAgente = it
+                agente = it
+            },
             cargoAgente = cargoAgente,
+
             localidadeAgente = localidadeAgente,
+            onLocalidadeAgenteChange = {
+                localidadeAgente = it
+                local = it
+            },
+
+            supervisorAgente = supervisorAgente,
+            onSupervisorAgenteChange = {
+                supervisorAgente = it
+                supervisor = it
+            },
+
+            fotoAgenteUri = fotoAgenteUri,
+            onFotoAgenteClick = {
+                seletorFoto.launch(arrayOf("image/*"))
+            },
+
             dataHoje = dataHoje,
             onVD = { if (visitasSalvas.isNotEmpty()) {
                 boletimIniciado = true
@@ -467,26 +532,34 @@ fun AppACE() {
             onAtividadeChange = {
                 atividade = it
                                 },
+
             categoria = categoria,
             onCategoriaChange = {
                 categoria = it
                                 },
-            agente = agente,
+
+            agente = nomeAgente,
             onAgenteChange = {
+                nomeAgente = it
                 agente = it
-                             },
+            },
+
             supervisor = supervisor,
             onSupervisorChange = {
                 supervisor = it
-                                 },
+                supervisorAgente = it
+            },
+
             local = local,
             onLocalChange = {
                 local = it
                             },
+
             cicloAno = cicloAno,
             onCicloChange = {
                 cicloAno = it
                             },
+
             onIniciar = {
                 boletimIniciado = true
                 telaAtual = "visitas"
@@ -511,8 +584,14 @@ fun HomeScreen(
     observacoes: Int,
     focos: Int,
     nomeAgente: String,
+    onNomeAgenteChange: (String) -> Unit,
     cargoAgente: String,
     localidadeAgente: String,
+    onLocalidadeAgenteChange: (String) -> Unit,
+    supervisorAgente: String,
+    onSupervisorAgenteChange: (String) -> Unit,
+    fotoAgenteUri: String?,
+    onFotoAgenteClick: () -> Unit,
     dataHoje: String,
     onVD: () -> Unit,
     onRG: () -> Unit,
@@ -520,6 +599,7 @@ fun HomeScreen(
     onConfig: () -> Unit,
     onRelatorios: () -> Unit,
 ) {
+    val context = LocalContext.current
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -570,43 +650,182 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF1E3A8A)),
+                            .background(Color(0xFF1E3A8A))
+                            .clickable {
+                                onFotoAgenteClick()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(40.dp)
-                        )
+
+                        if (fotoAgenteUri != null) {
+
+                            val bitmap by produceState<android.graphics.Bitmap?>(
+                                initialValue = null,
+                                key1 = fotoAgenteUri
+                            ) {
+                                value = try {
+                                    val uri = android.net.Uri.parse(fotoAgenteUri)
+
+                                    val originalBitmap = context.contentResolver
+                                        .openInputStream(uri)
+                                        ?.use { BitmapFactory.decodeStream(it) }
+
+                                    if (originalBitmap != null) {
+
+                                        val orientation = context.contentResolver
+                                            .openInputStream(uri)
+                                            ?.use { inputStream ->
+                                                ExifInterface(inputStream)
+                                                    .getAttributeInt(
+                                                        ExifInterface.TAG_ORIENTATION,
+                                                        ExifInterface.ORIENTATION_NORMAL
+                                                    )
+                                            } ?: ExifInterface.ORIENTATION_NORMAL
+
+                                        val matrix = Matrix()
+
+                                        when (orientation) {
+                                            ExifInterface.ORIENTATION_ROTATE_90 -> {
+                                                matrix.postRotate(90f)
+                                            }
+
+                                            ExifInterface.ORIENTATION_ROTATE_180 -> {
+                                                matrix.postRotate(180f)
+                                            }
+
+                                            ExifInterface.ORIENTATION_ROTATE_270 -> {
+                                                matrix.postRotate(270f)
+                                            }
+
+                                            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
+                                                matrix.preScale(-1f, 1f)
+                                            }
+
+                                            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                                                matrix.preScale(1f, -1f)
+                                            }
+                                        }
+
+                                        Bitmap.createBitmap(
+                                            originalBitmap,
+                                            0,
+                                            0,
+                                            originalBitmap.width,
+                                            originalBitmap.height,
+                                            matrix,
+                                            true
+                                        )
+                                    } else {
+                                        null
+                                    }
+
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            }
+
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap!!.asImageBitmap(),
+                                    contentDescription = "Foto do agente",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                            }
+
+                        } else {
+
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Adicionar foto",
+                                tint = Color.White,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
                     }
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            if (nomeAgente.isBlank()) "Seu nome" else nomeAgente,
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(Modifier.height(4.dp))
+
                         Text(
                             cargoAgente,
                             color = Color(0xFFCBD5E1),
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Default.Place,
-                                contentDescription = null,
-                                tint = Color(0xFF94A3B8),
-                                modifier = Modifier.size(16.dp)
+
+                        Spacer(Modifier.height(4.dp))
+
+                        OutlinedTextField(
+                            value = nomeAgente,
+                            onValueChange = onNomeAgenteChange,
+                            label = { Text("Nome do agente") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp),
+                            shape = RoundedCornerShape(30.dp),
+
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF3F7CFF),
+                                unfocusedBorderColor = Color(0xFF65708A),
+                                focusedLabelColor = Color(0xFF3F7CFF),
+                                unfocusedLabelColor = Color(0xFF9AA5BA)
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                if (localidadeAgente.isBlank()) "Defina a localidade" else localidadeAgente,
-                                color = Color(0xFFCBD5E1)
+                        )
+                        Spacer(Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = supervisorAgente,
+                            onValueChange = onSupervisorAgenteChange,
+                            label = { Text("Supervisor") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp),
+                            shape = RoundedCornerShape(30.dp),
+
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF3F7CFF),
+                                unfocusedBorderColor = Color(0xFF65708A),
+                                focusedLabelColor = Color(0xFF3F7CFF),
+                                unfocusedLabelColor = Color(0xFF9AA5BA)
                             )
-                        }
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        OutlinedTextField(
+                            value = localidadeAgente,
+                            onValueChange = onLocalidadeAgenteChange,
+                            label = { Text("Localidade") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(45.dp),
+                            shape = RoundedCornerShape(30.dp),
+
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF3F7CFF),
+                                unfocusedBorderColor = Color(0xFF65708A),
+                                focusedLabelColor = Color(0xFF3F7CFF),
+                                unfocusedLabelColor = Color(0xFF9AA5BA)
+                            )
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically) {
                             Icon(
@@ -616,7 +835,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(16.dp)
                             )
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(dataHoje, color = Color(0xFFCBD5E1))
                         }
                     }

@@ -32,6 +32,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation(platform(libs.androidx.compose.bom))
