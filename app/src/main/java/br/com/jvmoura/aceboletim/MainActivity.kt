@@ -253,6 +253,9 @@ fun AppACE() {
     var local by remember { mutableStateOf("") }
     var agente by remember { mutableStateOf("") }
     var supervisor by remember { mutableStateOf("") }
+    var visitasSalvas by remember { mutableStateOf(listOf<Visita>()) }
+    var visitas by remember { mutableStateOf(listOf<Visita>()) }
+
     LaunchedEffect(Unit) {
         val rascunho = RascunhoStore.carregar(context)
         if (rascunho != null) {
@@ -262,41 +265,8 @@ fun AppACE() {
             local = rascunho.cabecalho.localidade
             agente = rascunho.cabecalho.nome
             supervisor = rascunho.cabecalho.supervisor
+            visitasSalvas = rascunho.visitas
             boletimIniciado = true
-        }
-    }
-
-    fun salvarRascunho() {
-        scope.launch {
-            val cabecalho = CabecalhoBoletim(
-                nome = agente,
-                supervisor = supervisor,
-                data = "",
-                localidade = local,
-                quarteirao = "",
-                atividade = atividade,
-                categoria = categoria,
-                ciclo = cicloAno )
-            val rascunho = BoletimRascunho(
-                cabecalho = cabecalho,
-                visitas = emptyList(),
-                visitaAtual = Visita(
-                    quarteirao = "",
-                    rua = "",
-                    numero = "",
-                    sequencia = "",
-                    complemento = "",
-                    tipoImovel = "Casa",
-                    inspecionado = false,
-                    pendencia = "Fechado",
-                    foco = false,
-                    depositosEliminados = 0,
-                    tratamento = null,
-                    observacao = ""
-                ),
-                indiceAtual = 0
-            )
-            RascunhoStore.salvar(context, rascunho)
         }
     }
 
@@ -308,36 +278,34 @@ fun AppACE() {
             atividade = atividade,
             onAtividadeChange = {
                 atividade = it
-                salvarRascunho()
-                                },
+            },
+
             categoria = categoria,
             onCategoriaChange = {
                 categoria = it
-                salvarRascunho()
-                                },
+            },
+
             agente = agente,
             onAgenteChange = {
                 agente = it
-                salvarRascunho()
-                             },
+             },
+
             supervisor = supervisor,
             onSupervisorChange = {
                 supervisor = it
-                salvarRascunho()
-                                 },
+             },
+
             local = local,
             onLocalChange = {
                 local = it
-                salvarRascunho()
-                            },
+            },
+
             cicloAno = cicloAno,
             onCicloChange = {
                 cicloAno = it
-                salvarRascunho()
-                            },
+                },
             onIniciar = {
                 boletimIniciado = true
-                salvarRascunho()
             }
         )
      } else {
@@ -347,7 +315,8 @@ fun AppACE() {
             agente = agente,
             supervisor = supervisor,
             localidade = local,
-            ciclo = cicloAno
+            ciclo = cicloAno,
+            visitasIniciais = visitasSalvas
         )
     }
 }
@@ -579,15 +548,24 @@ fun TelaNovoBoletim(
         agente: String,
         supervisor: String,
         localidade: String,
-        ciclo: String
+        ciclo: String,
+        visitasIniciais: List<Visita>
+
     ) {
         val context = LocalContext.current
 
-        var visitas by remember { mutableStateOf(listOf<Visita>()) }
+        var visitas by remember { mutableStateOf(visitasIniciais) }
         var indiceEditando by remember { mutableStateOf<Int?>(null) }
 
         var quarteirao by remember { mutableStateOf("") }
         var rua by remember { mutableStateOf("") }
+        LaunchedEffect(visitasIniciais) {
+            if (visitasIniciais.isNotEmpty()) {
+                val ultima = visitasIniciais.last()
+                quarteirao = ultima.quarteirao
+                rua = ultima.rua
+            }
+        }
         var numero by remember { mutableStateOf("") }
         var sequencia by remember { mutableStateOf("") }
         var complemento by remember { mutableStateOf("") }
@@ -1268,7 +1246,8 @@ fun TelaNovoBoletim(
                                     visitas = visitas,
                                     visitaAtual = novaVisita,
                                     indiceAtual = if (indiceEditando == null) visitas.size
-                                    else indiceEditando!! )
+                                    else indiceEditando!!
+                                )
                                 RascunhoStore.salvar(context, rascunho)
                             }
 
@@ -1279,6 +1258,7 @@ fun TelaNovoBoletim(
                             pendencia = ""
                             observacao = ""
                             numero = ""
+                            sequencia = ""
                             complemento = ""
                             foco = false
                             depositosEliminados = 0
@@ -1340,7 +1320,12 @@ fun TelaNovoBoletim(
             item { HorizontalDivider() }
 
             item {
-                Text("Visitas do dia", style = MaterialTheme.typography.headlineSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("Visitas do dia", style = MaterialTheme.typography.headlineSmall)
+                }
             }
 
             itemsIndexed(visitas) { index, visita ->
@@ -1388,10 +1373,15 @@ fun TelaNovoBoletim(
                     Column(modifier = Modifier.padding(16.dp)) {
 
                         Text(
-                            text = if (visita.complemento.isBlank())
-                                visita.numero
-                            else
-                                "${visita.numero} - Comp. ${visita.complemento}",
+                            text = buildString {
+                                append(visita.numero)
+                                if (visita.sequencia.isNotBlank()) {
+                                    append(" - Seq. ${visita.sequencia}")
+                                }
+                                if (visita.complemento.isNotBlank()) {
+                                    append(" - Comp. ${visita.complemento}")
+                                }
+                           },
                             style = MaterialTheme.typography.titleLarge
                         )
 
@@ -1412,6 +1402,16 @@ fun TelaNovoBoletim(
 
                         if (visita.depositosEliminados > 0) {
                             Text("Eliminados: ${visita.depositosEliminados}")
+
+                        }
+
+                        if (visita.observacao.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Obs: ${visita.observacao}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
