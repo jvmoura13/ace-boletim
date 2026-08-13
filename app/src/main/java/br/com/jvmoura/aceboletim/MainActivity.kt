@@ -31,11 +31,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Assignment
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -538,72 +547,171 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                //Card da VD
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(150.dp),
+                        .height(280.dp)
+                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF1E3A5F),
+                            shape = RoundedCornerShape(28.dp)
+                        ),
+                    shape = RoundedCornerShape(28.dp),
                     onClick = onVD,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF2FF)
-
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF07111F)
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "VD",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color(0xFF1565C0)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text("Visita Domiciliar",
-                            style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Registrar visitas, imóveis, depósitos e tratamentos",
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
-                        )
+
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .background(
+                                    color = Color(0xFF0B1730),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    1.dp,
+                                    Color(0xFF143A7B),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Assignment,
+                                contentDescription = null,
+                                tint = Color(0xFF3B82F6),
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                            Text(
+                                "VD",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = Color.White
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Text(
+                                "Visita Domiciliar",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF2563EB)
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .height(2.dp)
+                                    .background(Color(0xFF2563EB))
+                            )
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Text(
+                                "Registrar visitas, imóveis, depósitos e tratamentos",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFE5E7EB),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
+                //CARD RG
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(150.dp),
+                        .height(280.dp)
+                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF14532D),
+                            shape = RoundedCornerShape(28.dp)
+                        ),
+                    shape = RoundedCornerShape(28.dp),
                     onClick = onRG,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF07150F)
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "RG",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color(0xFF2E7D32)
-                        )
 
-                        Spacer(Modifier.height(8.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .background(
+                                    color = Color(0xFF0B1F14),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    1.dp,
+                                    Color(0xFF14532D),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Place,
+                                contentDescription = null,
+                                tint = Color(0xFF22C55E),
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
 
-                        )
-                        Text(
-                            "Reconhecimento Geográfico",
-                            style = MaterialTheme.typography.titleMedium)
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Gerenciar quarteirões, lados e áreas",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                            Text(
+                                "RG",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = Color.White
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+
+                            Text(
+                                "Reconhecimento",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF22C55E)
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .height(2.dp)
+                                    .background(Color(0xFF22C55E))
+                            )
+
+                            Spacer(Modifier.height(16.dp))
+
+                            Text(
+                                "Gerenciar quarteirões, lados e áreas",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFE5E7EB),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
                     }
                 }
             }
@@ -613,61 +721,158 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                //CARD RESUMO
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(150.dp),
+                        .height(280.dp)
+                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF7C4A03),
+                            shape = RoundedCornerShape(28.dp)
+                        ),
+                    shape = RoundedCornerShape(28.dp),
                     onClick = onResumo,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1A1205)
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "Resumo",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color(0xFFEF6C00)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Visualizar produção, focos, depósitos e indicadores",
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            textAlign = TextAlign.Center
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .background(
+                                    color = Color(0xFF2A1B05),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    1.dp,
+                                    Color(0xFF7C4A03),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Assessment,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier
+                                    .size(44.dp)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Resumo",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Resumo Semanal",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFFF59E0B),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .height(2.dp)
+                                    .background(Color(0xFFF59E0B))
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Visualizar produção, focos, depósitos e indicadores",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFE5E7EB),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
+                //CARD CONFIG.
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(150.dp),
+                        .height(280.dp)
+                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF5B21B6),
+                            shape = RoundedCornerShape(28.dp)
+                        ),
+                    shape = RoundedCornerShape(28.dp),
                     onClick = onConfig,
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF12071A)
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
+                            .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            "Config",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = Color(0xFF7B1FA2)
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "Ajustes do app, backup, dados e preferências",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .background(
+                                    color = Color(0xFF1B0B2A),
+                                    shape = CircleShape
+                                )
+                                .border(
+                                    1.dp,
+                                    Color(0xFF5B21B6),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = null,
+                                tint = Color(0xFFA855F7),
+                                modifier = Modifier
+                                    .size(44.dp)
+                            )
+
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "Config",
+                                style = MaterialTheme.typography.headlineLarge,
+                                color = Color.White
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Configurações",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFFA855F7),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .height(2.dp)
+                                    .background(Color(0xFFA855F7))
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Ajustes do app, backup, dados e preferências",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFE5E7EB),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -726,7 +931,7 @@ fun HomeScreen(
                             style = MaterialTheme.typography.titleMedium)
                         Text("Acesse seus PDFs gerados")
                     }
-                    Icon(Icons.Default.ArrowForward, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                 }
             }
         }
