@@ -31,7 +31,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import android.content.Context
 import android.widget.Toast
-
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.Icon
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -365,6 +369,7 @@ fun AppACE() {
     var supervisor by remember { mutableStateOf("") }
     var visitasSalvas by remember { mutableStateOf(listOf<Visita>()) }
     var visitas by remember { mutableStateOf(listOf<Visita>()) }
+    var telaAtual by remember { mutableStateOf("inicio") }
 
     LaunchedEffect(Unit) {
         val rascunho = RascunhoStore.carregar(context)
@@ -383,42 +388,69 @@ fun AppACE() {
     BackHandler(enabled = boletimIniciado) {
         boletimIniciado = false
     }
-    if (!boletimIniciado) {
+
+    if (telaAtual == "inicio") {
+        HomeScreen(
+            visitasHoje = visitasSalvas.size,
+            observacoes = visitasSalvas.count {
+                it.observacao.isNotBlank() },
+            focos = visitasSalvas.count { it.foco },
+            onVD = { if (visitasSalvas.isNotEmpty()) {
+                boletimIniciado = true
+                telaAtual = "visitas"
+            } else {
+                telaAtual = "novo"
+            }
+           },
+            onRG = {
+                Toast.makeText(context, "RG em desenvolvimento",
+                    Toast.LENGTH_SHORT).show()
+                   },
+            onResumo = {
+                Toast.makeText(context, "Resumo em desenvolvimento",
+                    Toast.LENGTH_SHORT).show()
+                       },
+            onConfig = {
+                Toast.makeText(context, "Configurações em desenvolvimento",
+                    Toast.LENGTH_SHORT).show()
+                       },
+            onRelatorios = {
+                Toast.makeText(context, "Abra a pasta Downloads para ver os PDFs",
+                    Toast.LENGTH_LONG).show()
+            }
+        )
+    } else if (telaAtual == "novo") {
         TelaNovoBoletim(
             atividade = atividade,
             onAtividadeChange = {
                 atividade = it
-            },
-
+                                },
             categoria = categoria,
             onCategoriaChange = {
                 categoria = it
-            },
-
+                                },
             agente = agente,
             onAgenteChange = {
                 agente = it
-             },
-
+                             },
             supervisor = supervisor,
             onSupervisorChange = {
                 supervisor = it
-             },
-
+                                 },
             local = local,
             onLocalChange = {
                 local = it
-            },
-
+                            },
             cicloAno = cicloAno,
             onCicloChange = {
                 cicloAno = it
-                },
+                            },
             onIniciar = {
                 boletimIniciado = true
+                telaAtual = "visitas"
             }
         )
-     } else {
+    } else {
         TelaVisitas(
             atividade = atividade,
             categoria = categoria,
@@ -428,6 +460,276 @@ fun AppACE() {
             ciclo = cicloAno,
             visitasIniciais = visitasSalvas
         )
+    }
+}
+
+@Composable
+fun HomeScreen(
+    visitasHoje: Int,
+    observacoes: Int,
+    focos: Int,
+    onVD: () -> Unit,
+    onRG: () -> Unit,
+    onResumo: () -> Unit,
+    onConfig: () -> Unit,
+    onRelatorios: () -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Olá, ACE!",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Escolha uma opção para começar",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+        }
+
+        item {
+            Card {
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        "ACE João Vitor",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Agente de Combate a Endemias"
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Localidade: Centro"
+                    )
+                    Text(
+                        "Hoje: 12/08/2026"
+                    )
+                }
+                }
+            }
+        }
+
+        item {
+            Text(
+                "",
+                style = MaterialTheme.typography.titleLarge
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(150.dp),
+                    onClick = onVD,
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF2FF)
+
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "VD",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color(0xFF1565C0)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("Visita Domiciliar",
+                            style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Registrar visitas, imóveis, depósitos e tratamentos",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(150.dp),
+                    onClick = onRG,
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "RG",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color(0xFF2E7D32)
+                        )
+
+                        Spacer(Modifier.height(8.dp)
+
+                        )
+                        Text(
+                            "Reconhecimento Geográfico",
+                            style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Gerenciar quarteirões, lados e áreas",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(150.dp),
+                    onClick = onResumo,
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Resumo",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFFEF6C00)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Visualizar produção, focos, depósitos e indicadores",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(150.dp),
+                    onClick = onConfig,
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            "Config",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color(0xFF7B1FA2)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Ajustes do app, backup, dados e preferências",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Card {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text("Resumo rápido",
+                        style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(visitasHoje.toString(),
+                                style = MaterialTheme.typography.headlineSmall)
+                            Text("Visitas")
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(observacoes.toString(),
+                                style = MaterialTheme.typography.headlineSmall)
+                            Text("Observações")
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                focos.toString(),
+                                style = MaterialTheme.typography.headlineSmall)
+                            Text("Focos")
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                onClick = onRelatorios
+            ) {
+                Row(
+                    modifier = Modifier .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Boletins e relatórios",
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("Acesse seus PDFs gerados")
+                    }
+                    Icon(Icons.Default.ArrowForward, contentDescription = null)
+                }
+            }
+        }
     }
 }
 
