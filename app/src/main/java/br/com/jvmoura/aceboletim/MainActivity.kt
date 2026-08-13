@@ -45,6 +45,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.DateRange
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -258,7 +266,24 @@ fun gerarBoletimPdf(
 }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         super.onCreate(savedInstanceState)
+
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
 
         setContent {
             MaterialTheme {
@@ -367,6 +392,10 @@ fun gerarObservacoesPdf(
 
 @Composable
 fun AppACE() {
+    var nomeAgente by remember { mutableStateOf("") }
+    var cargoAgente by remember { mutableStateOf("Agente de Combate a Endemias") }
+    var localidadeAgente by remember { mutableStateOf("") }
+    val dataHoje = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var boletimIniciado by remember { mutableStateOf(false) }
@@ -404,6 +433,10 @@ fun AppACE() {
             observacoes = visitasSalvas.count {
                 it.observacao.isNotBlank() },
             focos = visitasSalvas.count { it.foco },
+            nomeAgente = nomeAgente,
+            cargoAgente = cargoAgente,
+            localidadeAgente = localidadeAgente,
+            dataHoje = dataHoje,
             onVD = { if (visitasSalvas.isNotEmpty()) {
                 boletimIniciado = true
                 telaAtual = "visitas"
@@ -477,6 +510,10 @@ fun HomeScreen(
     visitasHoje: Int,
     observacoes: Int,
     focos: Int,
+    nomeAgente: String,
+    cargoAgente: String,
+    localidadeAgente: String,
+    dataHoje: String,
     onVD: () -> Unit,
     onRG: () -> Unit,
     onResumo: () -> Unit,
@@ -486,53 +523,135 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf( Color(0xFF050816),
+                        Color(0xFF0A1024), Color(0xFF0D132B)
+                    )
+                )
+            )
+            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
+                                    //TITULO TELA DE INICIO
+
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     "Olá, ACE!",
+                    color = Color.White,
                     style = MaterialTheme.typography.headlineMedium
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Escolha uma opção para começar",
-                    style = MaterialTheme.typography.bodyLarge
+                Spacer(Modifier.height(8.dp)
                 )
             }
         }
 
         item {
-            Card {
+                                    //CARD AGENTE
 
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF111827)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        "ACE João Vitor",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Agente de Combate a Endemias"
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Localidade: Centro"
-                    )
-                    Text(
-                        "Hoje: 12/08/2026"
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E3A8A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(40.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            if (nomeAgente.isBlank()) "Seu nome" else nomeAgente,
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            cargoAgente,
+                            color = Color(0xFFCBD5E1),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Place,
+                                contentDescription = null,
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                if (localidadeAgente.isBlank()) "Defina a localidade" else localidadeAgente,
+                                color = Color(0xFFCBD5E1)
+                            )
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFF94A3B8),
+                                modifier = Modifier
+                                    .size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(dataHoje, color = Color(0xFFCBD5E1))
+                        }
+                    }
                 }
-                }
+            }
+        }
+
+        item {
+                                        //ESCOLHA OPÇÃO
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+
+                Text(
+                    "Escolha uma opção para começar",
+                    color = Color(0xFFB8C1D9),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Transparent,
+                                    Color(0xFF2563EB),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
             }
         }
 
@@ -547,12 +666,19 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                //Card da VD
+
+                                      //CARD VD
+
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(280.dp)
-                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .height(226.dp)
+                        .shadow(
+                            12.dp,
+                            RoundedCornerShape(24.dp),
+                            ambientColor = Color(0xFF2563EB),
+                            spotColor = Color(0xFF2563EB)
+                        )
                         .border(
                             width = 1.dp,
                             color = Color(0xFF1E3A5F),
@@ -574,7 +700,7 @@ fun HomeScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(88.dp)
+                                .size(72.dp)
                                 .background(
                                     color = Color(0xFF0B1730),
                                     shape = CircleShape
@@ -590,19 +716,13 @@ fun HomeScreen(
                                 imageVector = Icons.Filled.Assignment,
                                 contentDescription = null,
                                 tint = Color(0xFF3B82F6),
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(38.dp)
                             )
                         }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
 
-                            Text(
-                                "VD",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = Color.White
-                            )
 
-                            Spacer(Modifier.height(6.dp))
 
                             Text(
                                 "Visita Domiciliar",
@@ -630,12 +750,17 @@ fun HomeScreen(
                         }
                     }
                 }
-                //CARD RG
+                                         //CARD RG
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(280.dp)
-                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .height(226.dp)
+                        .shadow(
+                            12.dp,
+                            RoundedCornerShape(24.dp),
+                            ambientColor = Color(0xFF2563EB),
+                            spotColor = Color(0xFF2563EB)
+                            )
                         .border(
                             width = 1.dp,
                             color = Color(0xFF14532D),
@@ -657,7 +782,7 @@ fun HomeScreen(
 
                         Box(
                             modifier = Modifier
-                                .size(88.dp)
+                                .size(72.dp)
                                 .background(
                                     color = Color(0xFF0B1F14),
                                     shape = CircleShape
@@ -673,22 +798,15 @@ fun HomeScreen(
                                 imageVector = Icons.Filled.Place,
                                 contentDescription = null,
                                 tint = Color(0xFF22C55E),
-                                modifier = Modifier.size(44.dp)
+                                modifier = Modifier.size(38.dp)
                             )
                         }
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally)
+                        {
 
                             Text(
                                 "RG",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = Color.White
-                            )
-
-                            Spacer(Modifier.height(6.dp))
-
-                            Text(
-                                "Reconhecimento",
                                 style = MaterialTheme.typography.titleMedium,
                                 color = Color(0xFF22C55E)
                             )
@@ -705,7 +823,7 @@ fun HomeScreen(
                             Spacer(Modifier.height(16.dp))
 
                             Text(
-                                "Gerenciar quarteirões, lados e áreas",
+                                "Reconhecimento Geográfico dos quarteirões",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFFE5E7EB),
                                 textAlign = TextAlign.Center
@@ -721,12 +839,18 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                //CARD RESUMO
+
+                                        //CARD RESUMO
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(280.dp)
-                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .height(226.dp)
+                        .shadow(
+                            12.dp,
+                            RoundedCornerShape(24.dp),
+                            ambientColor = Color(0xFF2563EB),
+                            spotColor = Color(0xFF2563EB)
+                        )
                         .border(
                             width = 1.dp,
                             color = Color(0xFF7C4A03),
@@ -747,7 +871,7 @@ fun HomeScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(88.dp)
+                                .size(72.dp)
                                 .background(
                                     color = Color(0xFF2A1B05),
                                     shape = CircleShape
@@ -764,16 +888,11 @@ fun HomeScreen(
                                 contentDescription = null,
                                 tint = Color(0xFFF59E0B),
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(38.dp)
                             )
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Resumo",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.height(6.dp))
+
                             Text(
                                 "Resumo Semanal",
                                 style = MaterialTheme.typography.titleMedium,
@@ -789,7 +908,7 @@ fun HomeScreen(
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Visualizar produção, focos, depósitos e indicadores",
+                                "Visualizar produção, focos e depósitos",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color(0xFFE5E7EB),
                                 textAlign = TextAlign.Center
@@ -797,12 +916,17 @@ fun HomeScreen(
                         }
                     }
                 }
-                //CARD CONFIG.
+                                        //CARD CONFIG.
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .height(280.dp)
-                        .shadow(12.dp, RoundedCornerShape(28.dp))
+                        .height(226.dp)
+                        .shadow(
+                            12.dp,
+                            RoundedCornerShape(24.dp),
+                            ambientColor = Color(0xFF2563EB),
+                            spotColor = Color(0xFF2563EB)
+                        )
                         .border(
                             width = 1.dp,
                             color = Color(0xFF5B21B6),
@@ -823,7 +947,7 @@ fun HomeScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(88.dp)
+                                .size(72.dp)
                                 .background(
                                     color = Color(0xFF1B0B2A),
                                     shape = CircleShape
@@ -840,18 +964,13 @@ fun HomeScreen(
                                 contentDescription = null,
                                 tint = Color(0xFFA855F7),
                                 modifier = Modifier
-                                    .size(44.dp)
+                                    .size(38.dp)
                             )
 
                         }
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "Config",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = Color.White
-                            )
-                            Spacer(Modifier.height(6.dp))
+
                             Text(
                                 "Configurações",
                                 style = MaterialTheme.typography.titleMedium,
@@ -879,12 +998,23 @@ fun HomeScreen(
         }
 
         item {
-            Card {
+                                     //CARD RESUMO RAPIDO
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF111827)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF1F2937)),
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    Text("Resumo rápido",
-                        style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Resumo rápido",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -893,32 +1023,55 @@ fun HomeScreen(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(visitasHoje.toString(),
-                                style = MaterialTheme.typography.headlineSmall)
-                            Text("Visitas")
-                        }
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(observacoes.toString(),
-                                style = MaterialTheme.typography.headlineSmall)
-                            Text("Observações")
+                            Text(
+                                visitasHoje.toString(),
+                                color = Color.White,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                            Text(
+                                "Visitas",
+                                color = Color(0xFF94A3B8)
+                            )
                         }
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                focos.toString(),
-                                style = MaterialTheme.typography.headlineSmall)
-                            Text("Focos")
+                                visitasHoje.toString(),
+                                color = Color.White,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                            Text(
+                                "Observações",
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                visitasHoje.toString(),
+                                color = Color.White,
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                            Text(
+                                "Focos",
+                                color = Color(0xFF94A3B8)
+                            )
                         }
                     }
                 }
             }
         }
         item {
+                                     // CARD RELATORIOS
             Card(
-                onClick = onRelatorios
+                onClick = onRelatorios,
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF111827)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF1F2937)),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier .fillMaxWidth()
@@ -927,11 +1080,21 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Boletins e relatórios",
-                            style = MaterialTheme.typography.titleMedium)
-                        Text("Acesse seus PDFs gerados")
+                        Text(
+                            "Boletins e relatórios",
+                            color = Color.White,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            "Acesse seus PDFs gerados",
+                            color = Color(0xFF94A3B8)
+                        )
                     }
-                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
                 }
             }
         }
