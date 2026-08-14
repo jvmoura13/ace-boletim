@@ -1,5 +1,8 @@
 package br.com.jvmoura.aceboletim
 
+import br.com.jvmoura.aceboletim.data.AppDatabase
+import br.com.jvmoura.aceboletim.data.VisitaEntity
+import kotlinx.coroutines.Dispatchers
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
@@ -73,6 +76,10 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.ui.unit.sp
 import java.util.Locale
+import java.time.DayOfWeek
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 
 data class CabecalhoBoletim(
     val nome: String,
@@ -550,6 +557,7 @@ fun gerarObservacoesPdf(
 @Composable
 fun AppACE() {
     val context = LocalContext.current
+    val db = remember { AppDatabase.get(context) }
     val prefs = remember {
         context.getSharedPreferences("ace_config", Context.MODE_PRIVATE)
     }
@@ -1503,20 +1511,79 @@ fun TelaResumoSemanal(
     visitas: List<Visita>,
     onVoltar: () -> Unit
 ) {
-    val totalInspecionados = visitas.count { it.inspecionado }
-    val totalPendencias = visitas.count { it.pendencia.isNotBlank() }
-    val informados = totalInspecionados + totalPendencias
 
-    val totalTratados = visitas.sumOf { it.tratamento?.total ?: 0 }
-    val totalEliminados = visitas.sumOf { it.depositosEliminados }
-    val totalGramas = visitas.sumOf { it.tratamento?.gramas?.toDouble() ?: 0.0 }
+    val context = LocalContext.current
+    var visitasSemana by remember { mutableStateOf<List<VisitaEntity>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        visitasSemana = AppDatabase.get(context).visitaDao().listarTodas()
+    }
+
+    // Apenas segunda a sexta da semana atual
+
+
+    val hoje = LocalDate.now()
+    val inicioSemana = hoje.with(DayOfWeek.MONDAY)
+    val fimSemana = hoje.with(DayOfWeek.FRIDAY)
+
+    val visitasUteis = visitasSemana.filter {
+        val dataVisita = LocalDate.parse(it.data, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+        dataVisita in inicioSemana..fimSemana
+    }
+
+
+    val totalInformados = visitasUteis.size
+
+    val residencias = visitasUteis.count { it.tipoImovel == "Residência" }
+    val comercios = visitasUteis.count { it.tipoImovel == "Comércio" }
+    val terrenos = visitasUteis.count { it.tipoImovel == "Terreno" }
+    val outros = visitasUteis.count {
+        it.tipoImovel != "Residência" &&
+                it.tipoImovel != "Comércio" &&
+                it.tipoImovel != "Terreno"
+    }
+
+    val totalInspecionados = visitasUteis.count { it.inspecionado }
+
+    val fechadas = visitasUteis.count { it.pendencia.trim().equals("Fechado", ignoreCase = true) }
+    val recusadas = visitasUteis.count { it.pendencia.trim().equals("Recusado", ignoreCase = true) }
+    val abandonadas = visitasUteis.count { it.pendencia.trim().equals("Abandonado", ignoreCase = true) }
+
+    // OUTRAS PENDÊNCIAS (não confundir com outros tipos de imóvel)
+
+    val outrasPendencias = visitasUteis.count { val p = it.pendencia.trim()
+        p.isNotBlank() &&
+        !p.equals("Fechado", ignoreCase = true) &&
+        !p.equals("Recusado", ignoreCase = true) &&
+        !p.equals("Abandonado", ignoreCase = true)
+    }
+
+    val totalPendencias = fechadas + recusadas + abandonadas + outrasPendencias
+
+    val imoveisComFoco = visitasUteis.count { it.foco }
+
+    val totalEliminados = visitasUteis.sumOf { it.eliminados }
+    val totalTratados = visitasUteis.sumOf { it.tratados }
+
+    val totalA1 = visitasUteis.sumOf { it.a1 }
+    val totalA2 = visitasUteis.sumOf { it.a2 }
+    val totalB = visitasUteis.sumOf { it.b }
+    val totalC = visitasUteis.sumOf { it.c }
+    val totalD1 = visitasUteis.sumOf { it.d1 }
+    val totalD2 = visitasUteis.sumOf { it.d2 }
+    val totalE = visitasUteis.sumOf { it.e }
+
+    val totalGramas = visitasUteis.sumOf { it.larvicidaGramas }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF050816))
+            .statusBarsPadding()
+            .navigationBarsPadding()
             .padding(20.dp)
     ) {
+
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onVoltar) {
@@ -1544,7 +1611,12 @@ fun TelaResumoSemanal(
             ),
             shape = RoundedCornerShape(24.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
+            Column(modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF050816))
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+            ) {
 
                 Text(
                     "Período da semana",
@@ -1553,7 +1625,8 @@ fun TelaResumoSemanal(
                 )
 
                 Text(
-                    "10/08/2026 a 16/08/2026",
+                    "${inicioSemana.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" +
+                            " a ${fimSemana.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
@@ -1561,9 +1634,14 @@ fun TelaResumoSemanal(
 
                 Spacer(Modifier.height(20.dp))
 
-                LinhaResumo("Informados", informados.toString())
+                LinhaResumo("Informados", totalInformados.toString())
                 LinhaResumo("Inspecionados", totalInspecionados.toString())
-                LinhaResumo("Pendências", totalPendencias.toString())
+                LinhaResumo("Com foco", imoveisComFoco.toString())
+                LinhaResumo("Total pendências", totalPendencias.toString())
+                LinhaResumo("• Fechadas", fechadas.toString())
+                LinhaResumo("• Recusadas", recusadas.toString())
+                LinhaResumo("• Abandonadas", abandonadas.toString())
+                LinhaResumo("• Outras pendências", outrasPendencias.toString())
 
                 Divider(
                     modifier = Modifier.padding(vertical = 12.dp),
@@ -1571,10 +1649,17 @@ fun TelaResumoSemanal(
                 )
 
                 LinhaResumo("Depósitos tratados", totalTratados.toString())
-                LinhaResumo("Depósitos eliminados", totalEliminados.toString())
+                LinhaResumo("• A1", totalA1.toString())
+                LinhaResumo("• A2", totalA2.toString())
+                LinhaResumo("• B", totalB.toString())
+                LinhaResumo("• C", totalC.toString())
+                LinhaResumo("• D1", totalD1.toString())
+                LinhaResumo("• D2", totalD2.toString())
+                LinhaResumo("• E", totalE.toString())
                 LinhaResumo(
                     "Larvicida utilizado",
-                    String.format(Locale.US, "%.1f g", totalGramas)
+                    String.format(Locale.US, "%.1f g", totalGramas))
+                LinhaResumo("Depósitos eliminados", totalEliminados.toString()
                 )
             }
         }
@@ -2919,6 +3004,12 @@ fun TelaNovoBoletim(
                             )
                             val visitasComObservacao = visitas.filter { it.observacao.isNotBlank() }
                             gerarBoletimPdf(context, cabecalho, visitas)
+
+                            scope.launch {
+                                AppDatabase.get(context).visitaDao().inserirTodas(visitas.map {
+                                    it.toEntity() })
+                            }
+
                             if (visitasComObservacao.isNotEmpty()) {
                                 gerarObservacoesPdf(context, cabecalho, visitasComObservacao)
                             }
@@ -3043,3 +3134,27 @@ fun TelaNovoBoletim(
         }
     }
 
+fun Visita.toEntity(): VisitaEntity {
+    return VisitaEntity(
+        data = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+        rua = rua,
+        numero = numero,
+        sequencia = sequencia,
+        tipoImovel = tipoImovel,
+        inspecionado = inspecionado,
+        pendencia = pendencia,
+        foco = foco,
+
+        a1 = tratamento?.a1 ?: 0,
+        a2 = tratamento?.a2 ?: 0,
+        b = tratamento?.b ?: 0,
+        c = tratamento?.c ?: 0,
+        d1 = tratamento?.d1 ?: 0,
+        d2 = tratamento?.d2 ?: 0,
+        e = tratamento?.e ?: 0,
+        eliminados = depositosEliminados,
+        tratados = tratamento?.total ?: 0,
+        larvicidaGramas = tratamento?.gramas ?: 0.0
+
+    )
+}
