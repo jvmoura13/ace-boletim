@@ -70,6 +70,10 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.ui.unit.sp
+import java.util.Locale
+
 data class CabecalhoBoletim(
     val nome: String,
     val supervisor: String,
@@ -242,7 +246,18 @@ fun gerarBoletimPdf(
         canvasAtual.drawText(visita.complemento.take(10), colComp, y.toFloat(), paint)
         canvasAtual.drawText(tipo, colTipo, y.toFloat(), paint)
         canvasAtual.drawText(if (visita.inspecionado) "S" else "N", colInsp, y.toFloat(), paint)
-        canvasAtual.drawText(if (visita.pendencia.isNotBlank()) "S" else "N", colPend, y.toFloat(), paint)
+        canvasAtual.drawText(
+            when (visita.pendencia) {
+                "Fechado" -> "F"
+                "Recusado" -> "R"
+                "Abandonado" -> "A"
+                "Outros" -> "O"
+                else -> "N"
+            },
+            colPend,
+            y.toFloat(),
+            paint
+        )
         canvasAtual.drawText(if (visita.foco) "S" else "N", colFoco, y.toFloat(), paint)
         canvasAtual.drawText((t?.a1 ?: 0).toString(), colA1, y.toFloat(), paint)
         canvasAtual.drawText((t?.a2 ?: 0).toString(), colA2, y.toFloat(), paint)
@@ -259,6 +274,132 @@ fun gerarBoletimPdf(
         y += 26
 
     }
+
+    // ================= RESUMO DO BOLETIM =================
+
+    y += 40
+    paint.textSize = 22f
+    paint.isFakeBoldText = true
+    canvasAtual.drawText("RESUMO DO BOLETIM", 20f, y.toFloat(), paint)
+    y += 30
+    paint.textSize = 18f
+    paint.isFakeBoldText = false
+
+    // ---------- INSPECIONADOS ----------
+
+    val residenciasInspecionadas = visitas.count {
+        it.inspecionado && it.tipoImovel == "Residência"
+    }
+
+    val comerciosInspecionados = visitas.count {
+        it.inspecionado && it.tipoImovel == "Comércio"
+    }
+    val terrenosInspecionados = visitas.count {
+        it.inspecionado && it.tipoImovel == "Terreno"
+    }
+    val outrosInspecionados = visitas.count {
+        it.inspecionado && it.tipoImovel == "Outros"
+    }
+    val totalInspecionados = visitas.count { it.inspecionado }
+
+    // ---------- PENDÊNCIAS ----------
+
+    val fechados = visitas.count {
+        visita -> visita.pendencia.contains("Fechado", ignoreCase = true)
+    }
+    val recusas = visitas.count {
+        visita -> visita.pendencia.contains("Recusa", ignoreCase = true)
+    }
+    val abandonados = visitas.count {
+        visita -> visita.pendencia.contains("Abandon", ignoreCase = true)
+    }
+    val totalPendencias = visitas.count { it.pendencia.isNotBlank() }
+
+    // ---------- INFORMADOS ----------
+
+    val informados = totalInspecionados + totalPendencias
+
+    // ---------- DEPÓSITOS ----------
+
+    val totalA1 = visitas.sumOf { it.tratamento?.a1 ?: 0 }
+    val totalA2 = visitas.sumOf { it.tratamento?.a2 ?: 0 }
+    val totalB = visitas.sumOf { it.tratamento?.b ?: 0 }
+    val totalC = visitas.sumOf { it.tratamento?.c ?: 0 }
+    val totalD1 = visitas.sumOf { it.tratamento?.d1 ?: 0 }
+    val totalD2 = visitas.sumOf { it.tratamento?.d2 ?: 0 }
+    val totalE = visitas.sumOf { it.tratamento?.e ?: 0 }
+    val totalDepositosTratados =
+        totalA1 + totalA2 + totalB + totalC + totalD1 + totalD2 + totalE
+    val totalDepositosEliminados = visitas.sumOf { it.depositosEliminados }
+
+    // ---------- LARVICIDA ----------
+
+    val totalGramas = visitas.sumOf {
+        it.tratamento?.gramas?.toDouble() ?: 0.0 }
+
+    // ---------- FUNÇÃO AUXILIAR ----------
+
+    fun linhaResumo(titulo: String, valor: String) {
+        canvasAtual.drawText(titulo, 40f, y.toFloat(), paint)
+        canvasAtual.drawText(valor, 900f, y.toFloat(), paint)
+        y += 24
+    }
+
+    // ---------- IMPRESSÃO ----------
+
+    linhaResumo("Informados", informados.toString())
+
+    y += 10
+
+    linhaResumo("Residências inspecionadas",
+        residenciasInspecionadas.toString())
+    linhaResumo("Comércios inspecionados",
+        comerciosInspecionados.toString())
+    linhaResumo("Terrenos inspecionados",
+        terrenosInspecionados.toString())
+    linhaResumo("Outros inspecionados",
+        outrosInspecionados.toString())
+    linhaResumo("Total inspecionados",
+        totalInspecionados.toString())
+
+    y += 10
+
+    linhaResumo("Fechados",
+        fechados.toString())
+    linhaResumo("Recusas",
+        recusas.toString())
+    linhaResumo("Abandonados",
+        abandonados.toString())
+    linhaResumo("Total pendências",
+        totalPendencias.toString())
+
+    y += 10
+
+    linhaResumo("Depósitos A1",
+        totalA1.toString())
+    linhaResumo("Depósitos A2",
+        totalA2.toString())
+    linhaResumo("Depósitos B",
+        totalB.toString())
+    linhaResumo("Depósitos C",
+        totalC.toString())
+    linhaResumo("Depósitos D1",
+        totalD1.toString())
+    linhaResumo("Depósitos D2",
+        totalD2.toString())
+    linhaResumo("Depósitos E",
+        totalE.toString())
+    linhaResumo("Total depósitos tratados",
+        totalDepositosTratados.toString())
+    linhaResumo("Total depósitos eliminados",
+        totalDepositosEliminados.toString())
+
+    y += 10
+
+    linhaResumo( "Total de larvicida utilizado",
+        String.format(java.util.Locale.US, "%.1f g", totalGramas)
+    )
+
     pdf.finishPage(paginaAtual)
 
     val pasta = android.os.Environment.getExternalStoragePublicDirectory(
@@ -408,16 +549,24 @@ fun gerarObservacoesPdf(
 
 @Composable
 fun AppACE() {
-    var nomeAgente by remember { mutableStateOf("") }
-    var cargoAgente by remember { mutableStateOf("Agente de Combate a Endemias") }
-    var localidadeAgente by remember { mutableStateOf("") }
-    var atividadeAgente by remember { mutableStateOf("") }
-    var categoriaAgente by remember { mutableStateOf("") }
-    var cicloAgente by remember { mutableStateOf("") }
-    var supervisorAgente by remember { mutableStateOf("") }
-    val dataHoje = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val prefs = remember {
+        context.getSharedPreferences("ace_config", Context.MODE_PRIVATE)
+    }
+
+    var nomeAgente by remember {
+        mutableStateOf(prefs.getString("nome_agente", "") ?: "")
+    }
+
+    var localidadeAgente by remember {
+        mutableStateOf(prefs.getString("localidade_agente", "") ?: "")
+    }
+
+    var supervisorAgente by remember {
+        mutableStateOf(prefs.getString("supervisor_agente", "") ?: "")
+    }
+    var cargoAgente by remember { mutableStateOf("Agente de Combate a Endemias") }
+    val dataHoje = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     var boletimIniciado by remember { mutableStateOf(false) }
     var atividade by remember { mutableStateOf("Tratamento") }
     var categoria by remember { mutableStateOf("Bairro") }
@@ -426,7 +575,6 @@ fun AppACE() {
     var agente by remember { mutableStateOf("") }
     var supervisor by remember { mutableStateOf("") }
     var visitasSalvas by remember { mutableStateOf(listOf<Visita>()) }
-    var visitas by remember { mutableStateOf(listOf<Visita>()) }
     var telaAtual by remember { mutableStateOf("inicio") }
 
 
@@ -482,10 +630,15 @@ fun AppACE() {
             observacoes = visitasSalvas.count {
                 it.observacao.isNotBlank() },
             focos = visitasSalvas.count { it.foco },
+
             nomeAgente = nomeAgente,
             onNomeAgenteChange = {
                 nomeAgente = it
                 agente = it
+
+                prefs.edit()
+                    .putString("nome_agente", it)
+                    .apply()
             },
             cargoAgente = cargoAgente,
 
@@ -493,12 +646,20 @@ fun AppACE() {
             onLocalidadeAgenteChange = {
                 localidadeAgente = it
                 local = it
+
+                prefs.edit()
+                    .putString("localidade_agente", it)
+                    .apply()
             },
 
             supervisorAgente = supervisorAgente,
             onSupervisorAgenteChange = {
                 supervisorAgente = it
                 supervisor = it
+
+                prefs.edit()
+                    .putString("supervisor_agente", it)
+                    .apply()
             },
 
             fotoAgenteUri = fotoAgenteUri,
@@ -518,14 +679,17 @@ fun AppACE() {
                 Toast.makeText(context, "RG em desenvolvimento",
                     Toast.LENGTH_SHORT).show()
                    },
+
             onResumo = {
-                Toast.makeText(context, "Resumo em desenvolvimento",
-                    Toast.LENGTH_SHORT).show()
+                telaAtual = "resumo_semanal"
+
                        },
+
             onConfig = {
                 Toast.makeText(context, "Configurações em desenvolvimento",
                     Toast.LENGTH_SHORT).show()
                        },
+
             onRelatorios = {
                 Toast.makeText(context, "Abra a pasta Downloads para ver os PDFs",
                     Toast.LENGTH_LONG).show()
@@ -536,12 +700,12 @@ fun AppACE() {
             atividade = atividade,
             onAtividadeChange = {
                 atividade = it
-                                },
+            },
 
             categoria = categoria,
             onCategoriaChange = {
                 categoria = it
-                                },
+            },
 
             agente = nomeAgente,
             onAgenteChange = {
@@ -549,39 +713,48 @@ fun AppACE() {
                 agente = it
             },
 
-            supervisor = supervisor,
+            supervisor = supervisorAgente,
             onSupervisorChange = {
-                supervisor = it
                 supervisorAgente = it
+                supervisor = it
             },
 
-            local = local,
+            local = localidadeAgente,
             onLocalChange = {
+                localidadeAgente = it
                 local = it
-                            },
+            },
 
             cicloAno = cicloAno,
             onCicloChange = {
                 cicloAno = it
-                            },
+            },
 
             onIniciar = {
                 boletimIniciado = true
                 telaAtual = "visitas"
             }
         )
-    } else {
+    } else if (telaAtual == "resumo_semanal") {
+            TelaResumoSemanal(
+                visitas = visitasSalvas,
+                onVoltar = { telaAtual = "inicio" }
+            )
+        }
+
+     else {
         TelaVisitas(
             atividade = atividade,
             categoria = categoria,
-            agente = agente,
-            supervisor = supervisor,
-            localidade = local,
+            agente = nomeAgente,
+            supervisor = supervisorAgente,
+            localidade = localidadeAgente,
             ciclo = cicloAno,
             visitasIniciais = visitasSalvas
         )
     }
 }
+
 
 @Composable
 fun HomeScreen(
@@ -773,7 +946,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(58.dp),
+                                .height(62.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -794,7 +967,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(58.dp),
+                                .height(62.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -816,7 +989,7 @@ fun HomeScreen(
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(58.dp),
+                                .height(62.dp),
                             shape = RoundedCornerShape(30.dp),
 
                             colors = OutlinedTextFieldDefaults.colors(
@@ -857,7 +1030,7 @@ fun HomeScreen(
             ) {
 
                 Text(
-                    "Escolha uma opção para começar",
+                    "Que a força esteja com vc!!!",
                     color = Color(0xFFB8C1D9),
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -1323,6 +1496,126 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Composable
+fun TelaResumoSemanal(
+    visitas: List<Visita>,
+    onVoltar: () -> Unit
+) {
+    val totalInspecionados = visitas.count { it.inspecionado }
+    val totalPendencias = visitas.count { it.pendencia.isNotBlank() }
+    val informados = totalInspecionados + totalPendencias
+
+    val totalTratados = visitas.sumOf { it.tratamento?.total ?: 0 }
+    val totalEliminados = visitas.sumOf { it.depositosEliminados }
+    val totalGramas = visitas.sumOf { it.tratamento?.gramas?.toDouble() ?: 0.0 }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF050816))
+            .padding(20.dp)
+    ) {
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onVoltar) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = Color.White
+                )
+            }
+
+            Text(
+                text = "Resumo Semanal",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF0B1024)
+            ),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+
+                Text(
+                    "Período da semana",
+                    color = Color(0xFFB8C1EC),
+                    fontSize = 16.sp
+                )
+
+                Text(
+                    "10/08/2026 a 16/08/2026",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                LinhaResumo("Informados", informados.toString())
+                LinhaResumo("Inspecionados", totalInspecionados.toString())
+                LinhaResumo("Pendências", totalPendencias.toString())
+
+                Divider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    color = Color(0xFF26304F)
+                )
+
+                LinhaResumo("Depósitos tratados", totalTratados.toString())
+                LinhaResumo("Depósitos eliminados", totalEliminados.toString())
+                LinhaResumo(
+                    "Larvicida utilizado",
+                    String.format(Locale.US, "%.1f g", totalGramas)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = { /* PDF semanal depois */ },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF7C5CFF)
+            )
+        ) {
+            Text(
+                "Gerar PDF Semanal",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun LinhaResumo(titulo: String, valor: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(titulo, color = Color.White, fontSize = 16.sp)
+        Text(
+            valor,
+            color = Color(0xFF7C5CFF),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+
+    Spacer(Modifier.height(10.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1796,7 +2089,10 @@ fun TelaNovoBoletim(
 
 
             item {
-                Text("Tipo do imóvel", style = MaterialTheme.typography.titleMedium)
+                Text("Tipo do imóvel",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                    )
             }
 
             item {
@@ -2379,7 +2675,8 @@ fun TelaNovoBoletim(
                                         d2Tratado +
                                         eTratado
                             }",
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
                         )
                     }
                 }
@@ -2589,7 +2886,7 @@ fun TelaNovoBoletim(
                             gramas = 0.0
                         },
                         modifier = Modifier
-                            .fillMaxWidth(0.45f)
+                            .fillMaxWidth(0.48f)
                             .height(65.dp),
                         shape = RoundedCornerShape(50.dp)
                     ) {
@@ -2644,7 +2941,10 @@ fun TelaNovoBoletim(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("Visitas do dia", style = MaterialTheme.typography.headlineSmall)
+                    Text("Visitas do dia",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = Color.White
+                    )
                 }
             }
 
