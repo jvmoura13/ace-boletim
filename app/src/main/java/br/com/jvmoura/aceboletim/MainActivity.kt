@@ -67,6 +67,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.exifinterface.media.ExifInterface
 import android.graphics.Matrix
 import android.graphics.Bitmap
+import android.widget.Space
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -79,6 +81,7 @@ import java.util.Locale
 import java.time.DayOfWeek
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+
 
 
 data class CabecalhoBoletim(
@@ -741,6 +744,10 @@ fun AppACE() {
             onIniciar = {
                 boletimIniciado = true
                 telaAtual = "visitas"
+            },
+
+            onVoltar = {
+                telaAtual = "inicio"
             }
         )
     } else if (telaAtual == "resumo_semanal") {
@@ -758,7 +765,10 @@ fun AppACE() {
             supervisor = supervisorAgente,
             localidade = localidadeAgente,
             ciclo = cicloAno,
-            visitasIniciais = visitasSalvas
+            visitasIniciais = visitasSalvas,
+            onVoltar = {
+                telaAtual = "novo"
+            }
         )
     }
 }
@@ -766,6 +776,9 @@ fun AppACE() {
 
 @Composable
 fun HomeScreen(
+
+
+
     visitasHoje: Int,
     observacoes: Int,
     focos: Int,
@@ -785,18 +798,89 @@ fun HomeScreen(
     onConfig: () -> Unit,
     onRelatorios: () -> Unit,
 ) {
+
+    val Bg = Color(0xFF0F172A)
+    val CardBg = Color(0xFF1E293B)
+
     val context = LocalContext.current
+    var fotoBitmap by remember {
+        mutableStateOf<android.graphics.Bitmap?>(null)
+    }
+
+    LaunchedEffect(fotoAgenteUri) {
+        fotoBitmap = if (fotoAgenteUri != null) {
+            try {
+                val uri = android.net.Uri.parse(fotoAgenteUri)
+
+                val originalBitmap = context.contentResolver
+                    .openInputStream(uri)
+                    ?.use { inputStream ->
+                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                    }
+
+                if (originalBitmap != null) {
+
+                    val orientation = context.contentResolver
+                        .openInputStream(uri)
+                        ?.use { inputStream ->
+                            ExifInterface(inputStream).getAttributeInt(
+                                ExifInterface.TAG_ORIENTATION,
+                                ExifInterface.ORIENTATION_NORMAL
+                            )
+                        } ?: ExifInterface.ORIENTATION_NORMAL
+
+                    val matrix = android.graphics.Matrix()
+
+                    when (orientation) {
+
+                        ExifInterface.ORIENTATION_ROTATE_90 -> {
+                            matrix.postRotate(90f)
+                        }
+
+                        ExifInterface.ORIENTATION_ROTATE_180 -> {
+                            matrix.postRotate(180f)
+                        }
+
+                        ExifInterface.ORIENTATION_ROTATE_270 -> {
+                            matrix.postRotate(270f)
+                        }
+
+                        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
+                            matrix.preScale(-1f, 1f)
+                        }
+
+                        ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                            matrix.preScale(1f, -1f)
+                        }
+                    }
+
+                    android.graphics.Bitmap.createBitmap(
+                        originalBitmap,
+                        0,
+                        0,
+                        originalBitmap.width,
+                        originalBitmap.height,
+                        matrix,
+                        true
+                    )
+                } else {
+                    null
+                }
+
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf( Color(0xFF050816),
-                        Color(0xFF0A1024), Color(0xFF0D132B)
-                    )
-                )
-            )
+            //.windowInsetsPadding(WindowInsets.safeDrawing)
+            .background(Bg)
             .padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item {
@@ -806,9 +890,12 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(Modifier.height(26.dp)
+                )
                 Text(
+
                     "Olá, ACE!",
-                    color = Color.White,
+                    color = Color(0xFF00BCD4),
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Spacer(Modifier.height(8.dp)
@@ -821,7 +908,7 @@ fun HomeScreen(
 
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF111827)
+                    containerColor = CardBg
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -845,74 +932,11 @@ fun HomeScreen(
 
                         if (fotoAgenteUri != null) {
 
-                            val bitmap by produceState<android.graphics.Bitmap?>(
-                                initialValue = null,
-                                key1 = fotoAgenteUri
-                            ) {
-                                value = try {
-                                    val uri = android.net.Uri.parse(fotoAgenteUri)
 
-                                    val originalBitmap = context.contentResolver
-                                        .openInputStream(uri)
-                                        ?.use { BitmapFactory.decodeStream(it) }
 
-                                    if (originalBitmap != null) {
-
-                                        val orientation = context.contentResolver
-                                            .openInputStream(uri)
-                                            ?.use { inputStream ->
-                                                ExifInterface(inputStream)
-                                                    .getAttributeInt(
-                                                        ExifInterface.TAG_ORIENTATION,
-                                                        ExifInterface.ORIENTATION_NORMAL
-                                                    )
-                                            } ?: ExifInterface.ORIENTATION_NORMAL
-
-                                        val matrix = Matrix()
-
-                                        when (orientation) {
-                                            ExifInterface.ORIENTATION_ROTATE_90 -> {
-                                                matrix.postRotate(90f)
-                                            }
-
-                                            ExifInterface.ORIENTATION_ROTATE_180 -> {
-                                                matrix.postRotate(180f)
-                                            }
-
-                                            ExifInterface.ORIENTATION_ROTATE_270 -> {
-                                                matrix.postRotate(270f)
-                                            }
-
-                                            ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
-                                                matrix.preScale(-1f, 1f)
-                                            }
-
-                                            ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
-                                                matrix.preScale(1f, -1f)
-                                            }
-                                        }
-
-                                        Bitmap.createBitmap(
-                                            originalBitmap,
-                                            0,
-                                            0,
-                                            originalBitmap.width,
-                                            originalBitmap.height,
-                                            matrix,
-                                            true
-                                        )
-                                    } else {
-                                        null
-                                    }
-
-                                } catch (_: Exception) {
-                                    null
-                                }
-                            }
-
-                            if (bitmap != null) {
+                            if (fotoBitmap != null) {
                                 Image(
-                                    bitmap = bitmap!!.asImageBitmap(),
+                                    bitmap = fotoBitmap!!.asImageBitmap(),
                                     contentDescription = "Foto do agente",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
@@ -920,7 +944,7 @@ fun HomeScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Person,
-                                    contentDescription = null,
+                                    contentDescription = "Adicionar foto",
                                     tint = Color.White,
                                     modifier = Modifier.size(40.dp)
                                 )
@@ -935,7 +959,9 @@ fun HomeScreen(
                                 modifier = Modifier.size(40.dp)
                             )
                         }
+
                     }
+
                     Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
 
@@ -1079,20 +1105,20 @@ fun HomeScreen(
                         .weight(1f)
                         .height(226.dp)
                         .shadow(
-                            12.dp,
+                            1.dp,
                             RoundedCornerShape(24.dp),
                             ambientColor = Color(0xFF2563EB),
                             spotColor = Color(0xFF2563EB)
                         )
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF1E3A5F),
+                            color = Color(0xFF3F7FD0),
                             shape = RoundedCornerShape(28.dp)
                         ),
                     shape = RoundedCornerShape(28.dp),
                     onClick = onVD,
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF07111F)
+                        containerColor = Bg
                     )
                 ) {
                     Column(
@@ -1161,20 +1187,20 @@ fun HomeScreen(
                         .weight(1f)
                         .height(226.dp)
                         .shadow(
-                            12.dp,
+                            1.dp,
                             RoundedCornerShape(24.dp),
                             ambientColor = Color(0xFF2563EB),
                             spotColor = Color(0xFF2563EB)
-                            )
+                        )
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF14532D),
+                            color = Color(0xFF0AAB58),
                             shape = RoundedCornerShape(28.dp)
                         ),
                     shape = RoundedCornerShape(28.dp),
                     onClick = onRG,
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF07150F)
+                        containerColor = Bg
                     )
                 ) {
                     Column(
@@ -1251,20 +1277,20 @@ fun HomeScreen(
                         .weight(1f)
                         .height(226.dp)
                         .shadow(
-                            12.dp,
+                            1.dp,
                             RoundedCornerShape(24.dp),
                             ambientColor = Color(0xFF2563EB),
                             spotColor = Color(0xFF2563EB)
                         )
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF7C4A03),
+                            color = Color(0xFFFCD34D),
                             shape = RoundedCornerShape(28.dp)
                         ),
                     shape = RoundedCornerShape(28.dp),
                     onClick = onResumo,
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF1A1205)
+                        containerColor = Bg
                     )
                 ) {
                     Column(
@@ -1278,12 +1304,12 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(72.dp)
                                 .background(
-                                    color = Color(0xFF2A1B05),
+                                    color = Color(0xFF725032),
                                     shape = CircleShape
                                 )
                                 .border(
                                     1.dp,
-                                    Color(0xFF7C4A03),
+                                    Color(0xFFE8DD19),
                                     CircleShape
                                 ),
                             contentAlignment = Alignment.Center
@@ -1291,7 +1317,7 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.Filled.Assessment,
                                 contentDescription = null,
-                                tint = Color(0xFFF59E0B),
+                                tint = Color(0xFFE8DD19),
                                 modifier = Modifier
                                     .size(38.dp)
                             )
@@ -1301,7 +1327,7 @@ fun HomeScreen(
                             Text(
                                 "Resumo Semanal",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = Color(0xFFF59E0B),
+                                color = Color(0xFFE8DD19),
                                 textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(12.dp))
@@ -1309,7 +1335,7 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .width(80.dp)
                                     .height(2.dp)
-                                    .background(Color(0xFFF59E0B))
+                                    .background(Color(0xFFE8DD19))
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
@@ -1327,20 +1353,20 @@ fun HomeScreen(
                         .weight(1f)
                         .height(226.dp)
                         .shadow(
-                            12.dp,
+                            1.dp,
                             RoundedCornerShape(24.dp),
                             ambientColor = Color(0xFF2563EB),
                             spotColor = Color(0xFF2563EB)
                         )
                         .border(
                             width = 1.dp,
-                            color = Color(0xFF5B21B6),
+                            color = Color(0xFF673AB7),
                             shape = RoundedCornerShape(28.dp)
                         ),
                     shape = RoundedCornerShape(28.dp),
                     onClick = onConfig,
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF12071A)
+                        containerColor = Bg
                     )
                 ) {
                     Column(
@@ -1479,7 +1505,8 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    modifier = Modifier .fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -1501,7 +1528,11 @@ fun HomeScreen(
                         tint = Color.White
                     )
                 }
+
             }
+        }
+        item {
+            Spacer(Modifier.height(30.dp))
         }
     }
 }
@@ -1511,6 +1542,11 @@ fun TelaResumoSemanal(
     visitas: List<Visita>,
     onVoltar: () -> Unit
 ) {
+    BackHandler {
+        onVoltar()
+    }
+
+    val Bg = Color(0xFF0F172A)
 
     val context = LocalContext.current
     var visitasSemana by remember { mutableStateOf<List<VisitaEntity>>(emptyList()) }
@@ -1578,7 +1614,7 @@ fun TelaResumoSemanal(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF050816))
+            .background(Bg)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(20.dp)
@@ -1590,13 +1626,13 @@ fun TelaResumoSemanal(
                 Icon(
                     Icons.Default.ArrowBack,
                     contentDescription = "Voltar",
-                    tint = Color.White
+                    tint = Color(0xFF00BCD4)
                 )
             }
 
             Text(
                 text = "Resumo Semanal",
-                color = Color.White,
+                color = Color(0xFF00BCD4),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -1607,28 +1643,31 @@ fun TelaResumoSemanal(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF0B1024)
+                containerColor = Color(0xFF66666B)
             ),
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF050816))
+                .background(Color(0xFF1E293B))
                 .verticalScroll(rememberScrollState())
                 .padding(20.dp)
             ) {
 
                 Text(
                     "Período da semana",
-                    color = Color(0xFFB8C1EC),
-                    fontSize = 16.sp
+                    color = Color(0xFF00BCD4),
+                    fontSize = 22.sp,
+                    textAlign = TextAlign.Center
                 )
+
+                Spacer(Modifier.height(10.dp))
 
                 Text(
                     "${inicioSemana.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}" +
                             " a ${fimSemana.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))}",
-                    color = Color.White,
-                    fontSize = 18.sp,
+                    color = Color(0xFFFFFFFF),
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -1694,7 +1733,7 @@ fun LinhaResumo(titulo: String, valor: String) {
         Text(titulo, color = Color.White, fontSize = 16.sp)
         Text(
             valor,
-            color = Color(0xFF7C5CFF),
+            color = Color(0xFF00BCD4),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1718,8 +1757,12 @@ fun TelaNovoBoletim(
     onLocalChange: (String) -> Unit,
     cicloAno: String,
     onCicloChange: (String) -> Unit,
-    onIniciar: () -> Unit
+    onIniciar: () -> Unit,
+    onVoltar: () -> Unit
 ) {
+    BackHandler {
+        onVoltar()
+    }
 
 
     var atividadeExpanded by remember { mutableStateOf(false) }
@@ -1731,6 +1774,8 @@ fun TelaNovoBoletim(
             DateTimeFormatter.ofPattern("dd/MM/yyyy")
         )
     }
+
+    val Bg = Color(0xFF0F172A)
 
     val campoColors = OutlinedTextFieldDefaults.colors(
         focusedTextColor = Color.White,
@@ -1745,15 +1790,7 @@ fun TelaNovoBoletim(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF050816),
-                        Color(0xFF0A1024),
-                        Color(0xFF0D132B)
-                    )
-                )
-            )
+            .background(Bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -1767,7 +1804,7 @@ fun TelaNovoBoletim(
             ) {
                 Text(
                     text = "Boletim Diário",
-                    color = Color.White,
+                    color = Color(0xFF00BCD4),
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -1804,124 +1841,140 @@ fun TelaNovoBoletim(
         }
 
         item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                OutlinedTextField(
+                    value = local,
+                    onValueChange = onLocalChange,
+                    label = { Text("Localidade") },
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.weight(0.9f),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color(0xFF6EA8FF),
+                        unfocusedBorderColor = Color(0xFF65708A),
+                        focusedLabelColor = Color(0xFF6EA8FF),
+                        unfocusedLabelColor = Color(0xFFAAB3C8)
+                    )
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = categoriaExpanded,
+                    onExpandedChange = {
+                        categoriaExpanded =
+                            !categoriaExpanded
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = categoria,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Categoria") },
+                        shape = RoundedCornerShape(28.dp),
+                        colors = campoColors,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriaExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .width(113.dp)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = categoriaExpanded,
+                        onDismissRequest = { categoriaExpanded = false }
+                    ) {
+                        listOf("Bairro", "Rural").forEach {
+                            DropdownMenuItem(
+                                text = { Text(it) },
+
+                                onClick = {
+                                    onCategoriaChange(it)
+                                    categoriaExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                ExposedDropdownMenuBox(
+                    expanded = atividadeExpanded,
+                    onExpandedChange = {
+                        atividadeExpanded =
+                            !atividadeExpanded
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = atividade,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Atividade") },
+                        shape = RoundedCornerShape(30.dp),
+                        colors = campoColors,
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded =
+                                    atividadeExpanded
+                            )
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .width(157.dp)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = atividadeExpanded,
+                        onDismissRequest = {
+                            atividadeExpanded = false
+                        }
+                    ) {
+                        listOf("Tratamento", "Ação").forEach {
+                            DropdownMenuItem(
+                                text = { Text(it) },
+                                onClick = {
+                                    onAtividadeChange(it)
+                                    atividadeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = cicloAno,
+                    onValueChange = onCicloChange,
+                    label = { Text("Ciclo") },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
+                    modifier = Modifier.width(90.dp)
+                )
+
+            }
+        }
+
+        item {
             OutlinedTextField(
                 value = dataAtual,
                 onValueChange = {},
                 readOnly = true,
                 shape = RoundedCornerShape(30.dp),
                 colors = campoColors,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.width(120.dp)
             )
         }
-
-        item {
-            OutlinedTextField(
-                value = local,
-                onValueChange = onLocalChange,
-                label = { Text("Localidade") },
-                shape = RoundedCornerShape(30.dp),
-                colors = campoColors,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-
-
-        item {
-            ExposedDropdownMenuBox(
-                expanded = categoriaExpanded,
-                onExpandedChange = {
-                    categoriaExpanded =
-                        !categoriaExpanded
-                }
-            ) {
-                OutlinedTextField(
-                    value = categoria,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Categoria") },
-                    shape = RoundedCornerShape(30.dp),
-                    colors = campoColors,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoriaExpanded)
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = categoriaExpanded,
-                    onDismissRequest = { categoriaExpanded = false }
-                ) {
-                    listOf("Bairro", "Rural").forEach {
-                        DropdownMenuItem(
-                            text = { Text(it) },
-
-                            onClick = {
-                                onCategoriaChange(it)
-                                categoriaExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            ExposedDropdownMenuBox(
-                expanded = atividadeExpanded,
-                onExpandedChange = {
-                    atividadeExpanded =
-                        !atividadeExpanded
-                }
-            ) {
-                OutlinedTextField(
-                    value = atividade,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Atividade") },
-                    shape = RoundedCornerShape(30.dp),
-                    colors = campoColors,
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(
-                            expanded =
-                                atividadeExpanded
-                        )
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = atividadeExpanded,
-                    onDismissRequest = {
-                        atividadeExpanded = false
-                    }
-                ) {
-                    listOf("Tratamento", "Ação").forEach {
-                        DropdownMenuItem(
-                            text = { Text(it) },
-                            onClick = {
-                                onAtividadeChange(it)
-                                atividadeExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = cicloAno,
-                onValueChange = onCicloChange,
-                label = { Text("Ciclo/Ano") },
-                shape = RoundedCornerShape(30.dp),
-                colors = campoColors,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
 
 
         item {
@@ -1936,7 +1989,9 @@ fun TelaNovoBoletim(
             }
         }
 
+
         item {
+            Spacer(Modifier.height(70.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
@@ -1960,7 +2015,7 @@ fun TelaNovoBoletim(
                         .height(65.dp),
                     shape = RoundedCornerShape(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6F4BD8)
+                        containerColor = Color(0xFF5E3A9E)
                     )
                 ) {
                     Text(
@@ -1983,10 +2038,17 @@ fun TelaNovoBoletim(
         supervisor: String,
         localidade: String,
         ciclo: String,
-        visitasIniciais: List<Visita>
+        visitasIniciais: List<Visita>,
+        onVoltar: () -> Unit
 
     ) {
+
+        BackHandler {
+            onVoltar()
+        }
+
         val context = LocalContext.current
+        val Bg = Color(0xFF0F172A)
 
         var visitas by remember { mutableStateOf(visitasIniciais) }
         var indiceEditando by remember { mutableStateOf<Int?>(null) }
@@ -2031,69 +2093,57 @@ fun TelaNovoBoletim(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF050816),
-                            Color(0xFF0A1024),
-                            Color(0xFF0D132B)
-                        )
-                    )
-                )
+                .background(Bg)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
 
             item {
-                Box(
+                Spacer(Modifier.height(10.dp))
+            }
+
+            item {
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Visitas do Dia",
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold
+
+                    OutlinedTextField(
+                        value = quarteirao,
+                        onValueChange = { quarteirao = it },
+                        label = { Text("Quarteirão") },
+                        modifier = Modifier.weight(0.44f),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF6EA8FF),
+                            unfocusedBorderColor = Color(0xFF65708A),
+                            focusedLabelColor = Color(0xFF6EA8FF),
+                            unfocusedLabelColor = Color(0xFFAAB3C8)
+                        )
                     )
+
+                    OutlinedTextField(
+                        value = rua,
+                        onValueChange = { rua = it },
+                        label = { Text("Rua") },
+                        modifier = Modifier.weight(0.9f),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF6EA8FF),
+                            unfocusedBorderColor = Color(0xFF65708A),
+                            focusedLabelColor = Color(0xFF6EA8FF),
+                            unfocusedLabelColor = Color(0xFFAAB3C8)
+                        )
+                    )
+
                 }
             }
 
-            item {
-                OutlinedTextField(
-                    value = quarteirao,
-                    onValueChange = { quarteirao = it },
-                    label = { Text("Quarteirão") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF6EA8FF),
-                        unfocusedBorderColor = Color(0xFF65708A),
-                        focusedLabelColor = Color(0xFF6EA8FF),
-                        unfocusedLabelColor = Color(0xFFAAB3C8)
-                    )
-                )
-            }
-
-            item {
-                OutlinedTextField(
-                    value = rua,
-                    onValueChange = { rua = it },
-                    label = { Text("Rua") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(28.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = Color(0xFF6EA8FF),
-                        unfocusedBorderColor = Color(0xFF65708A),
-                        focusedLabelColor = Color(0xFF6EA8FF),
-                        unfocusedLabelColor = Color(0xFFAAB3C8)
-                    )
-                )
-            }
 
             item {
                 Row(
@@ -2107,7 +2157,7 @@ fun TelaNovoBoletim(
                         onValueChange = { numero = it },
                         label = { Text("Nº") },
                         modifier = Modifier.weight(0.9f),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -2123,7 +2173,7 @@ fun TelaNovoBoletim(
                         onValueChange = { sequencia = it },
                         label = { Text("Seq.") },
                         modifier = Modifier.weight(0.9f),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -2139,7 +2189,7 @@ fun TelaNovoBoletim(
                         onValueChange = { complemento = it },
                         label = { Text("Com.") },
                         modifier = Modifier.weight(0.9f),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(28.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
@@ -3140,6 +3190,7 @@ fun Visita.toEntity(): VisitaEntity {
         rua = rua,
         numero = numero,
         sequencia = sequencia,
+
         tipoImovel = tipoImovel,
         inspecionado = inspecionado,
         pendencia = pendencia,
@@ -3157,4 +3208,50 @@ fun Visita.toEntity(): VisitaEntity {
         larvicidaGramas = tratamento?.gramas ?: 0.0
 
     )
+}
+
+@Composable
+fun TelaRG(
+    onVoltar: () -> Unit
+) {
+    BackHandler {
+        onVoltar()
+    }
+
+    val Bg = Color(0xFF142341)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Bg)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(20.dp)
+    ) {
+
+        IconButton(
+            onClick = onVoltar
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Voltar",
+                tint = Color(0xFF00BCD4)
+            )
+        }
+
+        Text(
+            text = "RG do Bairro",
+            color = Color(0xFF00BCD4),
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "Tela de identificação do agente",
+            color = Color(0xFF00BCD4),
+            fontSize = 16.sp
+        )
+    }
 }
