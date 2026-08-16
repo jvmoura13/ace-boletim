@@ -9,10 +9,12 @@ data class VisitaEntity(
     val id: Long = 0,
 
     val data: String,
+    val ciclo: String,
+    val quarteirao: String,
     val rua: String,
     val numero: String,
     val sequencia: String,
-
+    val complemento: String,
     val tipoImovel: String,
     val inspecionado: Boolean,
 

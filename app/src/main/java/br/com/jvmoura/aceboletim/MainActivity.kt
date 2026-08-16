@@ -81,7 +81,14 @@ import java.util.Locale
 import java.time.DayOfWeek
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusManager
+import androidx.compose.ui.platform.LocalFocusManager
 
 
 data class CabecalhoBoletim(
@@ -110,6 +117,7 @@ data class Tratamento(
 }
 
 data class Visita(
+    val cicloAno: String,
     val quarteirao: String,
     val rua: String,
     val numero: String,
@@ -687,9 +695,8 @@ fun AppACE() {
             }
            },
             onRG = {
-                Toast.makeText(context, "RG em desenvolvimento",
-                    Toast.LENGTH_SHORT).show()
-                   },
+                telaAtual = "rg"
+            },
 
             onResumo = {
                 telaAtual = "resumo_semanal"
@@ -756,6 +763,13 @@ fun AppACE() {
                 onVoltar = { telaAtual = "inicio" }
             )
         }
+
+    else if (telaAtual == "rg") {
+        TelaRG(
+            ciclo = cicloAno,
+            onVoltar = { telaAtual = "inicio" }
+        )
+    }
 
      else {
         TelaVisitas(
@@ -1633,7 +1647,7 @@ fun TelaResumoSemanal(
             Text(
                 text = "Resumo Semanal",
                 color = Color(0xFF00BCD4),
-                fontSize = 28.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -1953,14 +1967,71 @@ fun TelaNovoBoletim(
                     }
                 }
 
-                OutlinedTextField(
-                    value = cicloAno,
-                    onValueChange = onCicloChange,
-                    label = { Text("Ciclo") },
-                    shape = RoundedCornerShape(30.dp),
-                    colors = campoColors,
-                    modifier = Modifier.width(90.dp)
-                )
+                var cicloExpandido by remember { mutableStateOf(false) }
+
+                ExposedDropdownMenuBox(
+                    expanded = cicloExpandido,
+                    onExpandedChange = {
+                        cicloExpandido = !cicloExpandido
+                    }
+                ) {
+
+                    OutlinedTextField(
+                        value = when (cicloAno) {
+                            "1" -> "1º"
+                            "2" -> "2º"
+                            "3" -> "3º"
+                            "4" -> "4º"
+                            "5" -> "5º"
+                            "6" -> "6º"
+                            else -> ""
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Ciclo") },
+
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                expanded = cicloExpandido
+                            )
+                        },
+
+                        shape = RoundedCornerShape(30.dp),
+                        colors = campoColors,
+
+                        modifier = Modifier
+                            .width(120.dp)
+                            .menuAnchor()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = cicloExpandido,
+                        onDismissRequest = {
+                            cicloExpandido = false
+                        }
+                    ) {
+
+                        listOf(
+                            "1º",
+                            "2º",
+                            "3º",
+                            "4º",
+                            "5º",
+                            "6º"
+                        ).forEachIndexed { index, ciclo ->
+
+                            DropdownMenuItem(
+                                text = {
+                                    Text(ciclo)
+                                },
+                                onClick = {
+                                    onCicloChange((index + 1).toString())
+                                    cicloExpandido = false
+                                }
+                            )
+                        }
+                    }
+                }
 
             }
         }
@@ -2956,6 +3027,7 @@ fun TelaNovoBoletim(
                             }
 
                             val novaVisita = Visita(
+                                cicloAno = ciclo,
                                 quarteirao = quarteirao,
                                 rua = rua,
                                 numero = numero,
@@ -3187,10 +3259,12 @@ fun TelaNovoBoletim(
 fun Visita.toEntity(): VisitaEntity {
     return VisitaEntity(
         data = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+        ciclo = cicloAno,
+        quarteirao = quarteirao,
         rua = rua,
         numero = numero,
         sequencia = sequencia,
-
+        complemento = complemento,
         tipoImovel = tipoImovel,
         inspecionado = inspecionado,
         pendencia = pendencia,
@@ -3212,13 +3286,27 @@ fun Visita.toEntity(): VisitaEntity {
 
 @Composable
 fun TelaRG(
+    ciclo: String,
     onVoltar: () -> Unit
 ) {
     BackHandler {
         onVoltar()
     }
 
-    val Bg = Color(0xFF142341)
+    val context = LocalContext.current
+
+    var visitas by remember {
+        mutableStateOf(emptyList<VisitaEntity>())
+    }
+
+    LaunchedEffect(Unit) {
+        visitas = AppDatabase
+            .get(context)
+            .visitaDao()
+            .listarPorCiclo(ciclo)
+    }
+
+    val Bg = Color(0xFF0F172A)
 
     Column(
         modifier = Modifier
@@ -3229,29 +3317,75 @@ fun TelaRG(
             .padding(20.dp)
     ) {
 
-        IconButton(
-            onClick = onVoltar
-        ) {
-            Icon(
-                imageVector = Icons.Default.ArrowBack,
-                contentDescription = "Voltar",
-                tint = Color(0xFF00BCD4)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onVoltar) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = Color(0xFF00BCD4)
+                )
+            }
+
+            Text(
+                text = "Quarteirões registrados",
+                color = Color(0xFF00BCD4),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
             )
         }
 
-        Text(
-            text = "RG do Bairro",
-            color = Color(0xFF00BCD4),
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(20.dp))
+        val quarteiroes = visitas
+            .map { it.quarteirao }
+            .distinct()
+            .sorted()
 
-        Text(
-            text = "Tela de identificação do agente",
-            color = Color(0xFF00BCD4),
-            fontSize = 16.sp
-        )
+        if (quarteiroes.isEmpty()) {
+
+            Text(
+                text = "Nenhum quarteirão encontrado.",
+                color = Color.LightGray,
+                fontSize = 16.sp
+            )
+
+        } else {
+
+            quarteiroes.forEach { quarteirao ->
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF1E3157)
+                    ),
+                    shape = RoundedCornerShape(18.dp)
+                ) {
+
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+
+                        Text(
+                            text = "Quarteirão $quarteirao",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        val total = visitas.count {
+                            it.quarteirao == quarteirao
+                        }
+
+                        Text(
+                            text = "$total imóvel(is) registrado(s)",
+                            color = Color(0xFF00BCD4),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
