@@ -89,6 +89,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+
+
 
 
 data class CabecalhoBoletim(
@@ -116,6 +122,19 @@ data class Tratamento(
         get() = a1 + a2 + b + c + d1 + d2 + e
 }
 
+data class Eliminados(
+    val a1: Int,
+    val a2: Int,
+    val b: Int,
+    val c: Int,
+    val d1: Int,
+    val d2: Int,
+    val e: Int
+) {
+    val total: Int
+        get() = a1 + a2 + b + c + d1 + d2 + e
+}
+
 data class Visita(
     val cicloAno: String,
     val quarteirao: String,
@@ -127,7 +146,15 @@ data class Visita(
     val inspecionado: Boolean,
     val pendencia: String,
     val foco: Boolean,
-    val depositosEliminados: Int,
+
+    val eliminadosA1: Int,
+    val eliminadosA2: Int,
+    val eliminadosB: Int,
+    val eliminadosC: Int,
+    val eliminadosD1: Int,
+    val eliminadosD2: Int,
+    val eliminadosE: Int,
+
     val tratamento: Tratamento?,
     val observacao: String
 )
@@ -175,22 +202,22 @@ fun gerarBoletimPdf(
     paint.textSize = 18f
     val colQ = 20f
     val colRua = 80f
-    val colNum = 500f
-    val colSeq = 590f
-    val colComp = 680f
-    val colTipo = 840f
-    val colInsp = 920f
-    val colPend = 1000f
-    val colFoco = 1080f
-    val colA1 = 1160f
-    val colA2 = 1230f
-    val colB = 1300f
-    val colC = 1370f
-    val colD1 = 1440f
-    val colD2 = 1510f
-    val colE = 1580f
-    val colGram = 1650f
-    val colTrat = 1730f
+    val colNum = 450f
+    val colSeq = 530f
+    val colComp = 610f
+    val colTipo = 690f
+    val colInsp = 770f
+    val colPend = 850f
+    val colFoco = 930f
+    val colA1 = 1010f
+    val colA2 = 1090f
+    val colB = 1160f
+    val colC = 1230f
+    val colD1 = 1300f
+    val colD2 = 1370f
+    val colE = 1440f
+    val colGram = 1510f
+    val colTrat = 1580f
 
     canvas.drawText("Q", colQ, y.toFloat(), paint)
     canvas.drawText("Rua", colRua, y.toFloat(), paint)
@@ -223,9 +250,9 @@ fun gerarBoletimPdf(
             val novaInfo = PdfDocument.PageInfo.Builder(1800, 1200, index + 2).create()
             paginaAtual = pdf.startPage(novaInfo)
             canvasAtual = paginaAtual.canvas
-            paint.textSize = 16f
+            paint.textSize = 17f
             canvasAtual.drawText("BOLETIM DE VISITAS (continuação)", 620f, 50f, paint)
-            paint.textSize = 11f
+            paint.textSize = 17f
             canvasAtual.drawText("Q", colQ, 90f, paint)
             canvasAtual.drawText("Rua", colRua, 90f, paint)
             canvasAtual.drawText("Nº", colNum, 90f, paint)
@@ -255,8 +282,10 @@ fun gerarBoletimPdf(
             "Residência" -> "R"
             "Terreno" -> "TB"
             "Comércio" -> "C"
+            "PE" -> "PE"
             else -> "O"
         }
+
         canvasAtual.drawText(visita.quarteirao, colQ, y.toFloat(), paint)
         canvasAtual.drawText(ruaCurta, colRua, y.toFloat(), paint)
         canvasAtual.drawText(visita.numero, colNum, y.toFloat(), paint)
@@ -268,8 +297,7 @@ fun gerarBoletimPdf(
             when (visita.pendencia) {
                 "Fechado" -> "F"
                 "Recusado" -> "R"
-                "Abandonado" -> "A"
-                "Outros" -> "O"
+                "PE" -> "PE"
                 else -> "N"
             },
             colPend,
@@ -296,133 +324,1142 @@ fun gerarBoletimPdf(
     // ================= RESUMO DO BOLETIM =================
 
     y += 40
+
     paint.textSize = 22f
     paint.isFakeBoldText = true
-    canvasAtual.drawText("RESUMO DO BOLETIM", 20f, y.toFloat(), paint)
-    y += 30
-    paint.textSize = 18f
+    canvasAtual.drawText("RESUMO DO BOLETIM", 40f, y.toFloat(), paint)
+
+    y += 35
+
+// ======================================================
+// FUNÇÕES AUXILIARES
+// ======================================================
+
+    fun ehPE(tipo: String): Boolean {
+        return tipo.equals("PE", ignoreCase = true)
+    }
+
+    fun ehTerreno(tipo: String): Boolean {
+        return tipo.equals("Terreno", ignoreCase = true) ||
+                tipo.equals("TB", ignoreCase = true)
+    }
+
+    fun ehResidencia(tipo: String): Boolean {
+        return tipo.equals("Residência", ignoreCase = true)
+    }
+
+    fun ehComercio(tipo: String): Boolean {
+        return tipo.equals("Comércio", ignoreCase = true)
+    }
+
+    fun ehOutro(tipo: String): Boolean {
+        return !ehPE(tipo) &&
+                !ehResidencia(tipo) &&
+                !ehComercio(tipo) &&
+                !ehTerreno(tipo)
+    }
+
+    fun totalDepositos(visita: VisitaEntity): Int {
+        return visita.a1 +
+                visita.a2 +
+                visita.b +
+                visita.c +
+                visita.d1 +
+                visita.d2 +
+                visita.e
+    }
+
+    fun totalEliminados(visita: VisitaEntity): Int {
+        return visita.eliminadosA1 +
+                visita.eliminadosA2 +
+                visita.eliminadosB +
+                visita.eliminadosC +
+                visita.eliminadosD1 +
+                visita.eliminadosD2 +
+                visita.eliminadosE
+    }
+
+    fun desenharTituloTabela(titulo: String) {
+
+        paint.textSize = 18f
+        paint.isFakeBoldText = true
+
+        canvasAtual.drawText(
+            titulo,
+            40f,
+            y.toFloat(),
+            paint
+        )
+
+        y += 10
+    }
+
+    fun desenharTabela(
+        cabecalhos: List<String>,
+        linhas: List<List<String>>,
+        larguras: List<Float>,
+        xInicial: Float = 40f,
+        yInicial: Float = y.toFloat(),
+        avancarY: Boolean = true
+    ): Float {
+        val alturaLinha = 25f
+        val alturaCabecalho = 28f
+
+        paint.textSize = 16f
+        paint.style = Paint.Style.STROKE
+
+        var x = xInicial
+        var yAtual = yInicial
+
+        // ---------- CABEÇALHO ----------
+
+        paint.isFakeBoldText = true
+
+        cabecalhos.forEachIndexed { indice, texto ->
+
+            paint.style = Paint.Style.STROKE
+
+            canvasAtual.drawRect(
+                x,
+                yAtual,
+                x + larguras[indice],
+                yAtual + alturaCabecalho,
+                paint
+            )
+
+            paint.style = Paint.Style.FILL
+            paint.isFakeBoldText = false
+
+            canvasAtual.drawText(
+                texto,
+                x + 5f,
+                yAtual + 19f,
+                paint
+            )
+
+            paint.isFakeBoldText = true
+
+            x += larguras[indice]
+        }
+
+        yAtual += alturaCabecalho
+
+        // ---------- LINHAS ----------
+
+        paint.isFakeBoldText = false
+
+        linhas.forEach { linha ->
+
+            x = xInicial
+
+            linha.forEachIndexed { indice, valor ->
+
+                paint.style = Paint.Style.STROKE
+
+                canvasAtual.drawRect(
+                    x,
+                    yAtual,
+                    x + larguras[indice],
+                    yAtual + alturaLinha,
+                    paint
+                )
+
+                paint.style = Paint.Style.FILL
+
+                canvasAtual.drawText(
+                    valor,
+                    x + 5f,
+                    yAtual + 18f,
+                    paint
+                )
+
+                x += larguras[indice]
+            }
+
+            yAtual += alturaLinha
+        }
+
+        // Retorna a altura total ocupada pela tabela
+        val alturaTotal = yAtual - yInicial
+
+        if (avancarY) {
+            y = yAtual.toInt() + 15
+        }
+
+        return alturaTotal
+    }
+
+    fun depositoTratado(
+        tipo: String,
+        deposito: (Visita) -> Int
+    ): Int {
+        return visitas
+            .filter { visita ->
+                !ehPE(visita.tipoImovel) &&
+                        when (tipo) {
+                            "Residência" -> ehResidencia(visita.tipoImovel)
+                            "Comércio" -> ehComercio(visita.tipoImovel)
+                            "TB" -> ehTerreno(visita.tipoImovel)
+                            "Outros" -> ehOutro(visita.tipoImovel)
+                            else -> false
+                        }
+            }
+            .sumOf { visita -> deposito(visita) }
+    }
+
+    // ============================================================
+// ============================================================
+// RESUMO / FECHAMENTO DO BOLETIM
+// ============================================================
+
+// Finaliza a última página onde estavam as visitas
+    pdf.finishPage(paginaAtual)
+
+// ============================================================
+// NOVA PÁGINA EXCLUSIVA PARA O FECHAMENTO
+// ============================================================
+
+    val resumoInfo = PdfDocument.PageInfo.Builder(
+        1800,
+        1200,
+        999
+    ).create()
+
+    paginaAtual = pdf.startPage(resumoInfo)
+    canvasAtual = paginaAtual.canvas
+
+    val canvasResumo = canvasAtual
+
+// ------------------------------------------------------------
+// CONFIGURAÇÕES VISUAIS
+// ------------------------------------------------------------
+
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 1.2f
     paint.isFakeBoldText = false
+    paint.textAlign = Paint.Align.LEFT
 
-    // ---------- INSPECIONADOS ----------
+    val larguraPagina = 1800f
 
-    val residenciasInspecionadas = visitas.count {
-        it.inspecionado && it.tipoImovel == "Residência"
+// ============================================================
+// FUNÇÕES AUXILIARES DO RESUMO
+// ============================================================
+
+    fun desenharTituloResumo(
+        titulo: String,
+        x: Float,
+        y: Float
+    ) {
+        paint.style = Paint.Style.FILL
+        paint.textSize = 22f
+        paint.isFakeBoldText = true
+        paint.textAlign = Paint.Align.LEFT
+
+        canvasResumo.drawText(
+            titulo,
+            x,
+            y,
+            paint
+        )
+
+        paint.isFakeBoldText = false
     }
 
-    val comerciosInspecionados = visitas.count {
-        it.inspecionado && it.tipoImovel == "Comércio"
+    fun desenharTabelaResumo(
+        x: Float,
+        y: Float,
+        cabecalhos: List<String>,
+        linhas: List<List<String>>,
+        larguras: List<Float>,
+        alturaLinha: Float = 26f,
+        tamanhoTexto: Float = 14f
+    ) {
+        require(cabecalhos.size == larguras.size)
+
+        for (linhaIndice in 0..linhas.size) {
+
+            val textoLinha = if (linhaIndice == 0) {
+                cabecalhos
+            } else {
+                linhas[linhaIndice - 1]
+            }
+
+            var xAtual = x
+
+            for (coluna in cabecalhos.indices) {
+
+                val largura = larguras[coluna]
+
+                val yTopo = y + (linhaIndice * alturaLinha)
+                val yBase = yTopo + alturaLinha
+
+                // ------------------------------------------------
+                // BORDA DA CÉLULA
+                // ------------------------------------------------
+
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = 1f
+
+                canvasResumo.drawRect(
+                    xAtual,
+                    yTopo,
+                    xAtual + largura,
+                    yBase,
+                    paint
+                )
+
+                // ------------------------------------------------
+                // TEXTO
+                // ------------------------------------------------
+
+                paint.style = Paint.Style.FILL
+                paint.textSize = tamanhoTexto
+                paint.isFakeBoldText = linhaIndice == 0 ||
+                        textoLinha.firstOrNull() == "TOTAL" ||
+                        textoLinha.firstOrNull() == "Geral"
+
+                paint.textAlign =
+                    if (coluna == 0) {
+                        Paint.Align.LEFT
+                    } else {
+                        Paint.Align.CENTER
+                    }
+
+                val texto = textoLinha.getOrElse(coluna) { "" }
+
+                val xTexto =
+                    if (coluna == 0) {
+                        xAtual + 6f
+                    } else {
+                        xAtual + (largura / 2f)
+                    }
+
+                val yTexto =
+                    yTopo +
+                            (alturaLinha / 2f) -
+                            ((paint.ascent() + paint.descent()) / 2f)
+
+                canvasResumo.drawText(
+                    texto,
+                    xTexto,
+                    yTexto,
+                    paint
+                )
+
+                xAtual += largura
+            }
+        }
+
+        paint.isFakeBoldText = false
+        paint.textAlign = Paint.Align.LEFT
     }
-    val terrenosInspecionados = visitas.count {
-        it.inspecionado && it.tipoImovel == "Terreno"
-    }
-    val outrosInspecionados = visitas.count {
-        it.inspecionado && it.tipoImovel == "Outros"
-    }
-    val totalInspecionados = visitas.count { it.inspecionado }
 
-    // ---------- PENDÊNCIAS ----------
+// ============================================================
+// FUNÇÕES PARA CALCULAR OS DADOS
+// ============================================================
 
-    val fechados = visitas.count {
-        visita -> visita.pendencia.contains("Fechado", ignoreCase = true)
-    }
-    val recusas = visitas.count {
-        visita -> visita.pendencia.contains("Recusa", ignoreCase = true)
-    }
-    val abandonados = visitas.count {
-        visita -> visita.pendencia.contains("Abandon", ignoreCase = true)
-    }
-    val totalPendencias = visitas.count { it.pendencia.isNotBlank() }
-
-    // ---------- INFORMADOS ----------
-
-    val informados = totalInspecionados + totalPendencias
-
-    // ---------- DEPÓSITOS ----------
-
-    val totalA1 = visitas.sumOf { it.tratamento?.a1 ?: 0 }
-    val totalA2 = visitas.sumOf { it.tratamento?.a2 ?: 0 }
-    val totalB = visitas.sumOf { it.tratamento?.b ?: 0 }
-    val totalC = visitas.sumOf { it.tratamento?.c ?: 0 }
-    val totalD1 = visitas.sumOf { it.tratamento?.d1 ?: 0 }
-    val totalD2 = visitas.sumOf { it.tratamento?.d2 ?: 0 }
-    val totalE = visitas.sumOf { it.tratamento?.e ?: 0 }
-    val totalDepositosTratados =
-        totalA1 + totalA2 + totalB + totalC + totalD1 + totalD2 + totalE
-    val totalDepositosEliminados = visitas.sumOf { it.depositosEliminados }
-
-    // ---------- LARVICIDA ----------
-
-    val totalGramas = visitas.sumOf {
-        it.tratamento?.gramas?.toDouble() ?: 0.0 }
-
-    // ---------- FUNÇÃO AUXILIAR ----------
-
-    fun linhaResumo(titulo: String, valor: String) {
-        canvasAtual.drawText(titulo, 40f, y.toFloat(), paint)
-        canvasAtual.drawText(valor, 900f, y.toFloat(), paint)
-        y += 24
+    fun quantidadeTipo(tipo: String): Int {
+        return visitas.count {
+            !ehPE(it.tipoImovel) &&
+                    when (tipo) {
+                        "Residência" -> ehResidencia(it.tipoImovel)
+                        "Comércio" -> ehComercio(it.tipoImovel)
+                        "TB" -> ehTerreno(it.tipoImovel)
+                        "Outros" -> ehOutro(it.tipoImovel)
+                        else -> false
+                    }
+        }
     }
 
-    // ---------- IMPRESSÃO ----------
+    fun inspecionadosTipo(tipo: String): Int {
+        return visitas.count {
+            !ehPE(it.tipoImovel) &&
+                    it.inspecionado &&
+                    when (tipo) {
+                        "Residência" -> ehResidencia(it.tipoImovel)
+                        "Comércio" -> ehComercio(it.tipoImovel)
+                        "TB" -> ehTerreno(it.tipoImovel)
+                        "Outros" -> ehOutro(it.tipoImovel)
+                        else -> false
+                    }
+        }
+    }
 
-    linhaResumo("Informados", informados.toString())
+    fun pendenciaTipo(
+        tipo: String,
+        pendencia: String
+    ): Int {
+        return visitas.count {
+            !ehPE(it.tipoImovel) &&
+                    when (tipo) {
+                        "Residência" -> ehResidencia(it.tipoImovel)
+                        "Comércio" -> ehComercio(it.tipoImovel)
+                        "TB" -> ehTerreno(it.tipoImovel)
+                        "Outros" -> ehOutro(it.tipoImovel)
+                        else -> false
+                    } &&
+                    it.pendencia.equals(
+                        pendencia,
+                        ignoreCase = true
+                    )
+        }
+    }
 
-    y += 10
+    fun depositoTipo(
+        tipo: String,
+        deposito: (Tratamento) -> Int
+    ): Int {
 
-    linhaResumo("Residências inspecionadas",
-        residenciasInspecionadas.toString())
-    linhaResumo("Comércios inspecionados",
-        comerciosInspecionados.toString())
-    linhaResumo("Terrenos inspecionados",
-        terrenosInspecionados.toString())
-    linhaResumo("Outros inspecionados",
-        outrosInspecionados.toString())
-    linhaResumo("Total inspecionados",
-        totalInspecionados.toString())
+        return visitas.sumOf { visita ->
 
-    y += 10
+            if (
+                ehPE(visita.tipoImovel) ||
+                when (tipo) {
+                    "Residência" -> !ehResidencia(visita.tipoImovel)
+                    "Comércio" -> !ehComercio(visita.tipoImovel)
+                    "TB" -> !ehTerreno(visita.tipoImovel)
+                    "Outros" -> !ehOutro(visita.tipoImovel)
+                    else -> true
+                }
+            ) {
+                0
+            } else {
+                visita.tratamento?.let {
+                    deposito(it)
+                } ?: 0
+            }
+        }
+    }
 
-    linhaResumo("Fechados",
-        fechados.toString())
-    linhaResumo("Recusas",
-        recusas.toString())
-    linhaResumo("Abandonados",
-        abandonados.toString())
-    linhaResumo("Total pendências",
-        totalPendencias.toString())
+    fun eliminadosTipo(
+        tipo: String,
+        deposito: (Visita) -> Int
+    ): Int {
 
-    y += 10
+        return visitas.sumOf { visita ->
 
-    linhaResumo("Depósitos A1",
-        totalA1.toString())
-    linhaResumo("Depósitos A2",
-        totalA2.toString())
-    linhaResumo("Depósitos B",
-        totalB.toString())
-    linhaResumo("Depósitos C",
-        totalC.toString())
-    linhaResumo("Depósitos D1",
-        totalD1.toString())
-    linhaResumo("Depósitos D2",
-        totalD2.toString())
-    linhaResumo("Depósitos E",
-        totalE.toString())
-    linhaResumo("Total depósitos tratados",
-        totalDepositosTratados.toString())
-    linhaResumo("Total depósitos eliminados",
-        totalDepositosEliminados.toString())
+            if (
+                ehPE(visita.tipoImovel) ||
+                when (tipo) {
+                    "Residência" -> !ehResidencia(visita.tipoImovel)
+                    "Comércio" -> !ehComercio(visita.tipoImovel)
+                    "TB" -> !ehTerreno(visita.tipoImovel)
+                    "Outros" -> !ehOutro(visita.tipoImovel)
+                    else -> true
+                }
+            ) {
+                0
+            } else {
+                deposito(visita)
+            }
+        }
+    }
 
-    y += 10
+// ============================================================
+// TÍTULO PRINCIPAL
+// ============================================================
 
-    linhaResumo( "Total de larvicida utilizado",
-        String.format(java.util.Locale.US, "%.1f g", totalGramas)
+    paint.style = Paint.Style.FILL
+    paint.textSize = 30f
+    paint.isFakeBoldText = true
+    paint.textAlign = Paint.Align.CENTER
+
+    canvasResumo.drawText(
+        "RESUMO DO BOLETIM",
+        larguraPagina / 2f,
+        45f,
+        paint
     )
+
+    paint.isFakeBoldText = false
+    paint.textAlign = Paint.Align.LEFT
+
+// ============================================================
+// INFORMADOS
+// ============================================================
+
+    val informadosResidencias = quantidadeTipo("Residência")
+    val informadosComercios = quantidadeTipo("Comércio")
+    val informadosTerrenos = quantidadeTipo("TB")
+    val informadosOutros = quantidadeTipo("Outros")
+
+    val totalInformados =
+        informadosResidencias +
+                informadosComercios +
+                informadosTerrenos +
+                informadosOutros
+
+    desenharTituloResumo(
+        "INFORMADOS",
+        40f,
+        85f
+    )
+
+    desenharTabelaResumo(
+        x = 40f,
+        y = 95f,
+        cabecalhos = listOf(
+            "Tipo",
+            "Quantidade"
+        ),
+        linhas = listOf(
+            listOf("Residências", informadosResidencias.toString()),
+            listOf("Comércios", informadosComercios.toString()),
+            listOf("Terrenos (TB)", informadosTerrenos.toString()),
+            listOf("Outros", informadosOutros.toString()),
+            listOf("TOTAL", totalInformados.toString())
+        ),
+        larguras = listOf(
+            190f,
+            100f
+        )
+    )
+
+// ============================================================
+// INSPECIONADOS
+// ============================================================
+
+    val inspecionadosResidencias =
+        inspecionadosTipo("Residência")
+
+    val inspecionadosComercios =
+        inspecionadosTipo("Comércio")
+
+    val inspecionadosTerrenos =
+        inspecionadosTipo("TB")
+
+    val inspecionadosOutros =
+        inspecionadosTipo("Outros")
+
+    val totalInspecionados =
+        inspecionadosResidencias +
+                inspecionadosComercios +
+                inspecionadosTerrenos +
+                inspecionadosOutros
+
+    desenharTituloResumo(
+        "INSPECIONADOS",
+        350f,
+        85f
+    )
+
+    desenharTabelaResumo(
+        x = 350f,
+        y = 95f,
+        cabecalhos = listOf(
+            "Tipo",
+            "Quantidade"
+        ),
+        linhas = listOf(
+            listOf("Residências", inspecionadosResidencias.toString()),
+            listOf("Comércios", inspecionadosComercios.toString()),
+            listOf("Terrenos (TB)", inspecionadosTerrenos.toString()),
+            listOf("Outros", inspecionadosOutros.toString()),
+            listOf("TOTAL", totalInspecionados.toString())
+        ),
+        larguras = listOf(
+            190f,
+            100f
+        )
+    )
+
+// ============================================================
+// PENDÊNCIAS
+// ============================================================
+
+    val fechadosResidencias =
+        pendenciaTipo("Residência", "Fechado")
+
+    val fechadosComercios =
+        pendenciaTipo("Comércio", "Fechado")
+
+    val fechadosTerrenos =
+        pendenciaTipo("TB", "Fechado")
+
+    val fechadosOutros =
+        pendenciaTipo("Outros", "Fechado")
+
+    val recusadosResidencias =
+        pendenciaTipo("Residência", "Recusado")
+
+    val recusadosComercios =
+        pendenciaTipo("Comércio", "Recusado")
+
+    val recusadosTerrenos =
+        pendenciaTipo("TB", "Recusado")
+
+    val recusadosOutros =
+        pendenciaTipo("Outros", "Recusado")
+
+    val totalFechados =
+        fechadosResidencias +
+                fechadosComercios +
+                fechadosTerrenos +
+                fechadosOutros
+
+    val totalRecusados =
+        recusadosResidencias +
+                recusadosComercios +
+                recusadosTerrenos +
+                recusadosOutros
+
+    val totalPendencias =
+        totalFechados +
+                totalRecusados
+
+    desenharTituloResumo(
+        "PENDÊNCIAS",
+        660f,
+        85f
+    )
+
+    desenharTabelaResumo(
+        x = 660f,
+        y = 95f,
+        cabecalhos = listOf(
+            "Tipo",
+            "Fechados",
+            "Recusados",
+            "Pendências"
+        ),
+        linhas = listOf(
+            listOf(
+                "Residências",
+                fechadosResidencias.toString(),
+                recusadosResidencias.toString(),
+                (fechadosResidencias + recusadosResidencias).toString()
+            ),
+            listOf(
+                "Comércios",
+                fechadosComercios.toString(),
+                recusadosComercios.toString(),
+                (fechadosComercios + recusadosComercios).toString()
+            ),
+            listOf(
+                "Terrenos (TB)",
+                fechadosTerrenos.toString(),
+                recusadosTerrenos.toString(),
+                (fechadosTerrenos + recusadosTerrenos).toString()
+            ),
+            listOf(
+                "Outros",
+                fechadosOutros.toString(),
+                recusadosOutros.toString(),
+                (fechadosOutros + recusadosOutros).toString()
+            ),
+            listOf(
+                "TOTAL",
+                totalFechados.toString(),
+                totalRecusados.toString(),
+                totalPendencias.toString()
+            )
+        ),
+        larguras = listOf(
+            170f,
+            100f,
+            100f,
+            110f
+        )
+    )
+
+// ============================================================
+// IMÓVEIS TRATADOS
+// ============================================================
+
+    val residenciasTratadas = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                ehResidencia(it.tipoImovel) &&
+                (it.tratamento?.total ?: 0) > 0
+    }
+
+    val comerciosTratados = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                ehComercio(it.tipoImovel) &&
+                (it.tratamento?.total ?: 0) > 0
+    }
+
+    val terrenosTratados = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                ehTerreno(it.tipoImovel) &&
+                (it.tratamento?.total ?: 0) > 0
+    }
+
+    val outrosTratados = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                ehOutro(it.tipoImovel) &&
+                (it.tratamento?.total ?: 0) > 0
+    }
+
+    val totalImoveisTratados =
+        residenciasTratadas +
+                comerciosTratados +
+                terrenosTratados +
+                outrosTratados
+
+    desenharTituloResumo(
+        "IMÓVEIS TRATADOS",
+        40f,
+        275f
+    )
+
+    desenharTabelaResumo(
+        x = 40f,
+        y = 285f,
+        cabecalhos = listOf(
+            "Tipo",
+            "Tratados"
+        ),
+        linhas = listOf(
+            listOf("Residências", residenciasTratadas.toString()),
+            listOf("Comércios", comerciosTratados.toString()),
+            listOf("Terrenos (TB)", terrenosTratados.toString()),
+            listOf("Outros", outrosTratados.toString()),
+            listOf("TOTAL", totalImoveisTratados.toString())
+        ),
+        larguras = listOf(
+            190f,
+            100f
+        )
+    )
+
+// ============================================================
+// FOCOS
+// ============================================================
+
+    val focosResidencias = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                it.foco &&
+                ehResidencia(it.tipoImovel)
+    }
+
+    val focosComercios = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                it.foco &&
+                ehComercio(it.tipoImovel)
+    }
+
+    val focosTerrenos = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                it.foco &&
+                ehTerreno(it.tipoImovel)
+    }
+
+    val focosOutros = visitas.count {
+        !ehPE(it.tipoImovel) &&
+                it.foco &&
+                ehOutro(it.tipoImovel)
+    }
+
+    val totalFocos =
+        focosResidencias +
+                focosComercios +
+                focosTerrenos +
+                focosOutros
+
+    desenharTituloResumo(
+        "FOCOS",
+        350f,
+        275f
+    )
+
+    desenharTabelaResumo(
+        x = 350f,
+        y = 285f,
+        cabecalhos = listOf(
+            "Tipo",
+            "Quantidade"
+        ),
+        linhas = listOf(
+            listOf("Residências", focosResidencias.toString()),
+            listOf("Comércios", focosComercios.toString()),
+            listOf("Terrenos (TB)", focosTerrenos.toString()),
+            listOf("Outros", focosOutros.toString()),
+            listOf("TOTAL", totalFocos.toString())
+        ),
+        larguras = listOf(
+            190f,
+            100f
+        )
+    )
+
+    y += 45
+
+// ============================================================
+// DEPÓSITOS TRATADOS
+// ============================================================
+
+    fun depositoGeral(
+        deposito: (Visita) -> Int
+    ): Int {
+        return visitas.sumOf { visita ->
+            if (ehPE(visita.tipoImovel)) {
+                0
+            } else {
+                deposito(visita)
+            }
+        }
+    }
+
+    val geralA1 = depositoGeral {
+        it.tratamento?.a1 ?: 0
+    }
+
+    val geralA2 = depositoGeral {
+        it.tratamento?.a2 ?: 0
+    }
+
+    val geralB = depositoGeral {
+        it.tratamento?.b ?: 0
+    }
+
+    val geralC = depositoGeral {
+        it.tratamento?.c ?: 0
+    }
+
+    val geralD1 = depositoGeral {
+        it.tratamento?.d1 ?: 0
+    }
+
+    val geralD2 = depositoGeral {
+        it.tratamento?.d2 ?: 0
+    }
+
+    val geralE = depositoGeral {
+        it.tratamento?.e ?: 0
+    }
+
+    val geralTratados =
+        geralA1 +
+                geralA2 +
+                geralB +
+                geralC +
+                geralD1 +
+                geralD2 +
+                geralE
+
+    desenharTituloResumo(
+        "DEPÓSITOS TRATADOS",
+        40f,
+        470f
+    )
+
+    desenharTabelaResumo(
+        x = 40f,
+        y = 480f,
+        cabecalhos = listOf(
+            "Tipo",
+            "A1",
+            "A2",
+            "B",
+            "C",
+            "D1",
+            "D2",
+            "E",
+            "TOTAL"
+        ),
+        linhas = listOf(
+            listOf(
+                "Residência",
+                depositoTipo("Residência") { it.a1 }.toString(),
+                depositoTipo("Residência") { it.a2 }.toString(),
+                depositoTipo("Residência") { it.b }.toString(),
+                depositoTipo("Residência") { it.c }.toString(),
+                depositoTipo("Residência") { it.d1 }.toString(),
+                depositoTipo("Residência") { it.d2 }.toString(),
+                depositoTipo("Residência") { it.e }.toString(),
+                depositoTipo("Residência") { it.total }.toString()
+            ),
+            listOf(
+                "Comércio",
+                depositoTipo("Comércio") { it.a1 }.toString(),
+                depositoTipo("Comércio") { it.a2 }.toString(),
+                depositoTipo("Comércio") { it.b }.toString(),
+                depositoTipo("Comércio") { it.c }.toString(),
+                depositoTipo("Comércio") { it.d1 }.toString(),
+                depositoTipo("Comércio") { it.d2 }.toString(),
+                depositoTipo("Comércio") { it.e }.toString(),
+                depositoTipo("Comércio") { it.total }.toString()
+            ),
+            listOf(
+                "TB",
+                depositoTipo("TB") { it.a1 }.toString(),
+                depositoTipo("TB") { it.a2 }.toString(),
+                depositoTipo("TB") { it.b }.toString(),
+                depositoTipo("TB") { it.c }.toString(),
+                depositoTipo("TB") { it.d1 }.toString(),
+                depositoTipo("TB") { it.d2 }.toString(),
+                depositoTipo("TB") { it.e }.toString(),
+                depositoTipo("TB") { it.total }.toString()
+            ),
+            listOf(
+                "Outros",
+                depositoTipo("Outros") { it.a1 }.toString(),
+                depositoTipo("Outros") { it.a2 }.toString(),
+                depositoTipo("Outros") { it.b }.toString(),
+                depositoTipo("Outros") { it.c }.toString(),
+                depositoTipo("Outros") { it.d1 }.toString(),
+                depositoTipo("Outros") { it.d2 }.toString(),
+                depositoTipo("Outros") { it.e }.toString(),
+                depositoTipo("Outros") { it.total }.toString()
+            ),
+            listOf(
+                "Geral",
+                geralA1.toString(),
+                geralA2.toString(),
+                geralB.toString(),
+                geralC.toString(),
+                geralD1.toString(),
+                geralD2.toString(),
+                geralE.toString(),
+                geralTratados.toString()
+            )
+        ),
+        larguras = listOf(
+            180f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            120f
+        ),
+        alturaLinha = 25f,
+        tamanhoTexto = 13f
+    )
+
+// ============================================================
+// DEPÓSITOS ELIMINADOS
+// ============================================================
+
+    fun eliminadosGeral(
+        campo: (Visita) -> Int
+    ): Int {
+        return visitas.sumOf {
+            if (ehPE(it.tipoImovel)) {
+                0
+            } else {
+                campo(it)
+            }
+        }
+    }
+
+    val elimA1 = eliminadosGeral {
+        it.eliminadosA1
+    }
+
+    val elimA2 = eliminadosGeral {
+        it.eliminadosA2
+    }
+
+    val elimB = eliminadosGeral {
+        it.eliminadosB
+    }
+
+    val elimC = eliminadosGeral {
+        it.eliminadosC
+    }
+
+    val elimD1 = eliminadosGeral {
+        it.eliminadosD1
+    }
+
+    val elimD2 = eliminadosGeral {
+        it.eliminadosD2
+    }
+
+    val elimE = eliminadosGeral {
+        it.eliminadosE
+    }
+
+    val totalEliminadosGeral =
+        elimA1 +
+                elimA2 +
+                elimB +
+                elimC +
+                elimD1 +
+                elimD2 +
+                elimE
+
+    desenharTituloResumo(
+        "DEPÓSITOS ELIMINADOS",
+        40f,
+        655f
+    )
+
+    desenharTabelaResumo(
+        x = 40f,
+        y = 665f,
+        cabecalhos = listOf(
+            "Tipo",
+            "A1",
+            "A2",
+            "B",
+            "C",
+            "D1",
+            "D2",
+            "E",
+            "TOTAL"
+        ),
+        linhas = listOf(
+            listOf(
+                "Residência",
+                eliminadosTipo("Residência") { it.eliminadosA1 }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosA2 }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosB }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosC }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosD1 }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosD2 }.toString(),
+                eliminadosTipo("Residência") { it.eliminadosE }.toString(),
+                eliminadosTipo("Residência") {
+                    it.eliminadosA1 +
+                            it.eliminadosA2 +
+                            it.eliminadosB +
+                            it.eliminadosC +
+                            it.eliminadosD1 +
+                            it.eliminadosD2 +
+                            it.eliminadosE
+                }.toString()
+            ),
+            listOf(
+                "Comércio",
+                eliminadosTipo("Comércio") { it.eliminadosA1 }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosA2 }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosB }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosC }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosD1 }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosD2 }.toString(),
+                eliminadosTipo("Comércio") { it.eliminadosE }.toString(),
+                eliminadosTipo("Comércio") {
+                    it.eliminadosA1 +
+                            it.eliminadosA2 +
+                            it.eliminadosB +
+                            it.eliminadosC +
+                            it.eliminadosD1 +
+                            it.eliminadosD2 +
+                            it.eliminadosE
+                }.toString()
+            ),
+            listOf(
+                "TB",
+                eliminadosTipo("TB") { it.eliminadosA1 }.toString(),
+                eliminadosTipo("TB") { it.eliminadosA2 }.toString(),
+                eliminadosTipo("TB") { it.eliminadosB }.toString(),
+                eliminadosTipo("TB") { it.eliminadosC }.toString(),
+                eliminadosTipo("TB") { it.eliminadosD1 }.toString(),
+                eliminadosTipo("TB") { it.eliminadosD2 }.toString(),
+                eliminadosTipo("TB") { it.eliminadosE }.toString(),
+                eliminadosTipo("TB") {
+                    it.eliminadosA1 +
+                            it.eliminadosA2 +
+                            it.eliminadosB +
+                            it.eliminadosC +
+                            it.eliminadosD1 +
+                            it.eliminadosD2 +
+                            it.eliminadosE
+                }.toString()
+            ),
+            listOf(
+                "Outros",
+                eliminadosTipo("Outros") { it.eliminadosA1 }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosA2 }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosB }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosC }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosD1 }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosD2 }.toString(),
+                eliminadosTipo("Outros") { it.eliminadosE }.toString(),
+                eliminadosTipo("Outros") {
+                    it.eliminadosA1 +
+                            it.eliminadosA2 +
+                            it.eliminadosB +
+                            it.eliminadosC +
+                            it.eliminadosD1 +
+                            it.eliminadosD2 +
+                            it.eliminadosE
+                }.toString()
+            ),
+            listOf(
+                "Geral",
+                elimA1.toString(),
+                elimA2.toString(),
+                elimB.toString(),
+                elimC.toString(),
+                elimD1.toString(),
+                elimD2.toString(),
+                elimE.toString(),
+                totalEliminadosGeral.toString()
+            )
+        ),
+        larguras = listOf(
+            180f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            100f,
+            120f
+        ),
+        alturaLinha = 25f,
+        tamanhoTexto = 13f
+    )
+
+// ============================================================
+// LARVICIDA UTILIZADO
+// ============================================================
+
+    val totalGramasBoletim = visitas
+        .filter {
+            !ehPE(it.tipoImovel)
+        }
+        .sumOf {
+            it.tratamento?.gramas ?: 0.0
+        }
+
+    desenharTituloResumo(
+        "LARVICIDA UTILIZADO",
+        40f,
+        850f
+    )
+
+    desenharTabelaResumo(
+        x = 40f,
+        y = 860f,
+        cabecalhos = listOf(
+            "Informação",
+            "Quantidade"
+        ),
+        linhas = listOf(
+            listOf(
+                "Larvicida utilizado",
+                String.format(
+                    java.util.Locale.US,
+                    "%.1f g",
+                    totalGramasBoletim
+                )
+            )
+        ),
+        larguras = listOf(
+            220f,
+            120f
+        )
+    )
+
+// ============================================================
+// FINALIZA A ÚLTIMA PÁGINA
+// ============================================================
 
     pdf.finishPage(paginaAtual)
 
     val pasta = android.os.Environment.getExternalStoragePublicDirectory(
         android.os.Environment.DIRECTORY_DOWNLOADS
     )
+
+    if (!pasta.exists()) {
+        pasta.mkdirs()
+    }
 
     val nomeArquivo =
         "Boletim_${cabecalho.localidade}_Q${cabecalho.quarteirao}_${cabecalho.data.replace("/", "-")}.pdf"
@@ -438,6 +1475,1187 @@ fun gerarBoletimPdf(
         Toast.LENGTH_LONG
     ).show()
 
+}
+
+fun gerarRgPdf(
+    context: android.content.Context,
+    cabecalho: CabecalhoBoletim,
+    quarteirao: String,
+    visitas: List<Visita>
+) {
+
+    val pdf = PdfDocument()
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    // ============================================================
+    // TAMANHO DA PÁGINA - RETRATO
+    // ============================================================
+
+    val larguraPagina = 1240
+    val alturaPagina = 1754
+
+    val pageInfo = PdfDocument.PageInfo.Builder(
+        larguraPagina,
+        alturaPagina,
+        1
+    ).create()
+
+    val page = pdf.startPage(pageInfo)
+    val canvas = page.canvas
+
+    // ============================================================
+    // CONFIGURAÇÕES
+    // ============================================================
+
+    val margem = 35f
+
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 1.5f
+
+    // ============================================================
+    // TÍTULO
+    // ============================================================
+
+    paint.style = Paint.Style.FILL
+    paint.textSize = 30f
+    paint.isFakeBoldText = true
+
+    canvas.drawText(
+        "REGISTRO GERAL - QUARTEIRÃO",
+        360f,
+        45f,
+        paint
+    )
+
+    paint.isFakeBoldText = false
+
+    // ============================================================
+    // CABEÇALHO
+    // ============================================================
+
+    val inicioCabecalho = 70f
+    val alturaLinha = 38f
+
+    val metade = (larguraPagina - (margem * 2)) / 2f
+
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 1.5f
+
+    // Caixa do cabeçalho
+    canvas.drawRect(
+        margem,
+        inicioCabecalho,
+        larguraPagina - margem,
+        inicioCabecalho + alturaLinha * 3,
+        paint
+    )
+
+    // Divisão vertical
+    canvas.drawLine(
+        larguraPagina / 2f,
+        inicioCabecalho,
+        larguraPagina / 2f,
+        inicioCabecalho + alturaLinha * 3,
+        paint
+    )
+
+    // Divisões horizontais
+    canvas.drawLine(
+        margem,
+        inicioCabecalho + alturaLinha,
+        larguraPagina - margem,
+        inicioCabecalho + alturaLinha,
+        paint
+    )
+
+    canvas.drawLine(
+        margem,
+        inicioCabecalho + alturaLinha * 2,
+        larguraPagina - margem,
+        inicioCabecalho + alturaLinha * 2,
+        paint
+    )
+
+    paint.style = Paint.Style.FILL
+    paint.textSize = 18f
+
+    // Linha 1
+    canvas.drawText(
+        "Agente: ${cabecalho.nome}",
+        margem + 10f,
+        inicioCabecalho + 25f,
+        paint
+    )
+
+    canvas.drawText(
+        "Categoria: ${cabecalho.categoria}",
+        larguraPagina / 2f + 10f,
+        inicioCabecalho + 25f,
+        paint
+    )
+
+    // Linha 2
+    canvas.drawText(
+        "Supervisor: ${cabecalho.supervisor}",
+        margem + 10f,
+        inicioCabecalho + alturaLinha + 25f,
+        paint
+    )
+
+    canvas.drawText(
+        "Bairro: ${cabecalho.localidade}",
+        larguraPagina / 2f + 10f,
+        inicioCabecalho + alturaLinha + 25f,
+        paint
+    )
+
+    // Linha 3
+    canvas.drawText(
+        "Data: ${cabecalho.data}",
+        margem + 10f,
+        inicioCabecalho + alturaLinha * 2 + 25f,
+        paint
+    )
+
+    canvas.drawText(
+        "Quarteirão: $quarteirao",
+        larguraPagina / 2f + 10f,
+        inicioCabecalho + alturaLinha * 2 + 25f,
+        paint
+    )
+
+    // ============================================================
+    // TABELA DE IMÓVEIS
+    // ============================================================
+
+    val inicioTabela = inicioCabecalho + alturaLinha * 3 + 25f
+
+    val larguraTabela = larguraPagina - margem * 2
+    val larguraCadaTabela = larguraTabela / 2f
+
+    val alturaCabecalhoTabela = 55f
+    val alturaLinhaImovel = 30f
+
+    // Cada metade da folha
+    val esquerdaX = margem
+    val direitaX = margem + larguraCadaTabela
+
+    // Larguras das colunas
+    val colRua = 350f
+    val colNumero = 45f
+    val colSeq = 45f
+    val colComp = 50f
+    val colTipo = 55f
+    val colPend = larguraCadaTabela -
+            colRua -
+            colNumero -
+            colSeq -
+            colComp -
+            colTipo
+
+    // ============================================================
+    // CABEÇALHO DA TABELA
+    // ============================================================
+
+    fun desenharCabecalhoTabela(x: Float) {
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 1.2f
+
+        canvas.drawRect(
+            x,
+            inicioTabela,
+            x + larguraCadaTabela,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        var posX = x
+
+        canvas.drawLine(
+            posX + colRua,
+            inicioTabela,
+            posX + colRua,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        posX += colRua
+
+        canvas.drawLine(
+            posX + colNumero,
+            inicioTabela,
+            posX + colNumero,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        posX += colNumero
+
+        canvas.drawLine(
+            posX + colSeq,
+            inicioTabela,
+            posX + colSeq,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        posX += colSeq
+
+        canvas.drawLine(
+            posX + colComp,
+            inicioTabela,
+            posX + colComp,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        posX += colComp
+
+        canvas.drawLine(
+            posX + colTipo,
+            inicioTabela,
+            posX + colTipo,
+            inicioTabela + alturaCabecalhoTabela,
+            paint
+        )
+
+        paint.style = Paint.Style.FILL
+        paint.textSize = 12f
+        paint.isFakeBoldText = true
+
+        canvas.drawText(
+            "Logradouro",
+            x + 150f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        canvas.drawText(
+            "Nº",
+            x + colRua + 12f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        canvas.drawText(
+            "Seq",
+            x + colRua + colNumero + 8f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        canvas.drawText(
+            "Comp.",
+            x + colRua + colNumero + colSeq + 5f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        canvas.drawText(
+            "Tipo",
+            x + colRua + colNumero + colSeq + colComp + 8f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        canvas.drawText(
+            "Pend.",
+            x + colRua + colNumero + colSeq +
+                    colComp + colTipo + 5f,
+            inicioTabela + 22f,
+            paint
+        )
+
+        paint.isFakeBoldText = false
+    }
+
+    desenharCabecalhoTabela(esquerdaX)
+    desenharCabecalhoTabela(direitaX)
+
+    // ============================================================
+    // IMÓVEIS
+    // ============================================================
+
+    val visitasDoQuarteirao = visitas.filter {
+        it.quarteirao == quarteirao
+    }
+
+    // Quantidade máxima de linhas disponíveis
+    val maxLinhas = 40
+
+    val primeiraMetade = visitasDoQuarteirao.take(maxLinhas)
+    val segundaMetade = visitasDoQuarteirao.drop(maxLinhas).take(maxLinhas)
+
+    fun desenharImovel(
+        visita: Visita,
+        x: Float,
+        linha: Int
+    ) {
+
+        val y = inicioTabela +
+                alturaCabecalhoTabela +
+                linha * alturaLinhaImovel
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 1f
+
+        canvas.drawRect(
+            x,
+            y,
+            x + larguraCadaTabela,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        var posX = x
+
+        canvas.drawLine(
+            posX + colRua,
+            y,
+            posX + colRua,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        posX += colRua
+
+        canvas.drawLine(
+            posX + colNumero,
+            y,
+            posX + colNumero,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        posX += colNumero
+
+        canvas.drawLine(
+            posX + colSeq,
+            y,
+            posX + colSeq,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        posX += colSeq
+
+        canvas.drawLine(
+            posX + colComp,
+            y,
+            posX + colComp,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        posX += colComp
+
+        canvas.drawLine(
+            posX + colTipo,
+            y,
+            posX + colTipo,
+            y + alturaLinhaImovel,
+            paint
+        )
+
+        // --------------------------------------------------------
+        // Tipo
+        // --------------------------------------------------------
+
+        val tipo = when (visita.tipoImovel) {
+            "Residência" -> "R"
+            "Terreno" -> "TB"
+            "Comércio" -> "C"
+            else -> "O"
+        }
+
+        // --------------------------------------------------------
+        // Pendência
+        // --------------------------------------------------------
+
+        val pendencia = when {
+            visita.pendencia.contains(
+                "Fechado",
+                ignoreCase = true
+            ) -> "F"
+
+            visita.pendencia.contains(
+                "Recusa",
+                ignoreCase = true
+            ) -> "R"
+
+            visita.pendencia.contains(
+                "Abandon",
+                ignoreCase = true
+            ) -> "A"
+
+            visita.pendencia.isNotBlank() -> "O"
+
+            else -> ""
+        }
+
+        paint.style = Paint.Style.FILL
+        paint.textSize = 11f
+
+        val rua = if (visita.rua.length > 17) {
+            visita.rua.take(17) + "…"
+        } else {
+            visita.rua
+        }
+
+        val complemento = if (visita.complemento.length > 9) {
+            visita.complemento.take(9) + "…"
+        } else {
+            visita.complemento
+        }
+
+        canvas.drawText(
+            rua,
+            x + 4f,
+            y + 20f,
+            paint
+        )
+
+        canvas.drawText(
+            visita.numero,
+            x + colRua + 5f,
+            y + 20f,
+            paint
+        )
+
+        canvas.drawText(
+            visita.sequencia,
+            x + colRua + colNumero + 5f,
+            y + 20f,
+            paint
+        )
+
+        canvas.drawText(
+            complemento,
+            x + colRua + colNumero + colSeq + 4f,
+            y + 20f,
+            paint
+        )
+
+        canvas.drawText(
+            tipo,
+            x + colRua + colNumero + colSeq +
+                    colComp + 18f,
+            y + 20f,
+            paint
+        )
+
+        canvas.drawText(
+            pendencia,
+            x + colRua + colNumero + colSeq +
+                    colComp + colTipo + 12f,
+            y + 20f,
+            paint
+        )
+    }
+
+    primeiraMetade.forEachIndexed { index, visita ->
+        desenharImovel(
+            visita,
+            esquerdaX,
+            index
+        )
+    }
+
+    segundaMetade.forEachIndexed { index, visita ->
+        desenharImovel(
+            visita,
+            direitaX,
+            index
+        )
+    }
+
+// ============================================================
+// FECHAMENTO
+// ============================================================
+
+    val ultimaLinha = inicioTabela +
+            alturaCabecalhoTabela +
+            maxLinhas * alturaLinhaImovel
+
+    val fechamentoY = ultimaLinha + 25f
+
+    val larguraFechamento = larguraPagina - margem
+    val alturaTituloFechamento = 30f
+    val alturaLinhaFechamento = 28f
+    val alturaTabelaFechamento =
+        alturaTituloFechamento + (alturaLinhaFechamento * 4)
+
+    val meioFechamento = larguraPagina / 2f
+
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 1.5f
+
+// ============================================================
+// TOTAIS
+// ============================================================
+
+    val residencias = visitasDoQuarteirao.count {
+        it.tipoImovel == "Residência"
+    }
+
+    val comercios = visitasDoQuarteirao.count {
+        it.tipoImovel == "Comércio"
+    }
+
+    val terrenos = visitasDoQuarteirao.count {
+        it.tipoImovel == "Terreno"
+    }
+
+    val outros = visitasDoQuarteirao.count {
+        it.tipoImovel == "Outros"
+    }
+
+    val pendencias = visitasDoQuarteirao.count {
+        it.pendencia.isNotBlank()
+    }
+
+    val totalGeral =
+        residencias +
+                comercios +
+                terrenos +
+                outros
+
+// ============================================================
+// BORDA EXTERNA
+// ============================================================
+
+    canvas.drawRect(
+        margem,
+        fechamentoY,
+        larguraFechamento,
+        fechamentoY + alturaTabelaFechamento,
+        paint
+    )
+
+// ============================================================
+// LINHA ABAIXO DO TÍTULO
+// ============================================================
+
+    canvas.drawLine(
+        margem,
+        fechamentoY + alturaTituloFechamento,
+        larguraFechamento,
+        fechamentoY + alturaTituloFechamento,
+        paint
+    )
+
+// ============================================================
+// DIVISÃO VERTICAL
+// ============================================================
+
+    canvas.drawLine(
+        meioFechamento,
+        fechamentoY + alturaTituloFechamento,
+        meioFechamento,
+        fechamentoY + alturaTabelaFechamento,
+        paint
+    )
+
+// ============================================================
+// LINHAS HORIZONTAIS
+// ============================================================
+
+    for (i in 1..3) {
+        val y = fechamentoY +
+                alturaTituloFechamento +
+                (alturaLinhaFechamento * i)
+
+        canvas.drawLine(
+            margem,
+            y,
+            meioFechamento,
+            y,
+            paint
+        )
+    }
+
+// ============================================================
+// TÍTULO
+// ============================================================
+
+    paint.style = Paint.Style.FILL
+    paint.textSize = 18f
+    paint.isFakeBoldText = true
+
+    val titulo = "FECHAMENTO"
+
+    canvas.drawText(
+        titulo,
+        larguraPagina / 2f - (paint.measureText(titulo) / 2f),
+        fechamentoY + 21f,
+        paint
+    )
+
+// ============================================================
+// TEXTOS DO FECHAMENTO
+// ============================================================
+
+    paint.isFakeBoldText = false
+    paint.textSize = 16f
+
+    val margemTexto = 15f
+
+// Linha 1 - Residencial
+    canvas.drawText(
+        "Residencial (R): $residencias",
+        margem + margemTexto,
+        fechamentoY + alturaTituloFechamento + 20f,
+        paint
+    )
+
+// Linha 2 - Comercial
+    canvas.drawText(
+        "Comercial (C): $comercios",
+        margem + margemTexto,
+        fechamentoY + alturaTituloFechamento + 48f,
+        paint
+    )
+
+// Linha 3 - Terreno Baldio
+    canvas.drawText(
+        "Terreno Baldio (TB): $terrenos",
+        margem + margemTexto,
+        fechamentoY + alturaTituloFechamento + 76f,
+        paint
+    )
+
+// Linha 4 - Pendências
+    canvas.drawText(
+        "Pendências (P): $pendencias",
+        margem + margemTexto,
+        fechamentoY + alturaTituloFechamento + 104f,
+        paint
+    )
+
+// ============================================================
+// LADO DIREITO
+// ============================================================
+
+// Outros
+    canvas.drawText(
+        "Outros (O): $outros",
+        meioFechamento + margemTexto,
+        fechamentoY + alturaTituloFechamento + 20f,
+        paint
+    )
+
+// Total Geral
+    paint.isFakeBoldText = true
+
+    canvas.drawText(
+        "TOTAL GERAL: $totalGeral",
+        meioFechamento + margemTexto,
+        fechamentoY + alturaTituloFechamento + 48f,
+        paint
+    )
+
+    paint.isFakeBoldText = false
+
+    // ============================================================
+    // IDENTIFICAÇÃO / ASSINATURA
+    // ============================================================
+
+    val assinaturaY = fechamentoY + 165f
+
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = 1.2f
+
+    canvas.drawRect(
+        margem,
+        assinaturaY,
+        larguraPagina - margem,
+        assinaturaY + 90f,
+        paint
+    )
+
+    canvas.drawLine(
+        margem,
+        assinaturaY + 45f,
+        larguraPagina - margem,
+        assinaturaY + 45f,
+        paint
+    )
+
+    paint.style = Paint.Style.FILL
+    paint.textSize = 16f
+
+    canvas.drawText(
+        "Nome: ${cabecalho.nome}",
+        margem + 10f,
+        assinaturaY + 28f,
+        paint
+    )
+
+    canvas.drawText(
+        "Assinatura:",
+        margem + 10f,
+        assinaturaY + 73f,
+        paint
+    )
+
+    canvas.drawText(
+        "Data: ${cabecalho.data}",
+        larguraPagina - 200f,
+        assinaturaY + 73f,
+        paint
+    )
+
+    // ============================================================
+    // FINALIZAÇÃO
+    // ============================================================
+
+    pdf.finishPage(page)
+
+    val pasta = android.os.Environment.getExternalStoragePublicDirectory(
+        android.os.Environment.DIRECTORY_DOWNLOADS
+    )
+
+    if (!pasta.exists()) {
+        pasta.mkdirs()
+    }
+
+    // IMPORTANTE:
+    // O nome NÃO possui ciclo nem ano.
+    // O arquivo representa o estado atual do quarteirão.
+
+    val nomeArquivo = "RG_Q${quarteirao}.pdf"
+
+    val arquivo = File(
+        pasta,
+        nomeArquivo
+    )
+
+    // FileOutputStream sobrescreve o arquivo existente.
+    pdf.writeTo(
+        FileOutputStream(arquivo)
+    )
+
+    pdf.close()
+
+    Toast.makeText(
+        context,
+        "RG do quarteirão $quarteirao atualizado em Downloads",
+        Toast.LENGTH_LONG
+    ).show()
+}
+
+fun exportarBoletimXlsx(
+    context: android.content.Context,
+    visitas: List<Visita>,
+    cabecalho: CabecalhoBoletim
+) {
+
+    val pasta = android.os.Environment.getExternalStoragePublicDirectory(
+        android.os.Environment.DIRECTORY_DOWNLOADS
+    )
+
+    if (!pasta.exists()) {
+        pasta.mkdirs()
+    }
+
+    val nomeArquivo =
+        "Boletim_${cabecalho.localidade}_Q${cabecalho.quarteirao}_${cabecalho.data.replace("/", "-")}.xlsx"
+
+    val arquivo = java.io.File(
+        pasta,
+        nomeArquivo
+    )
+
+    val workbook = org.apache.poi.xssf.usermodel.XSSFWorkbook()
+
+    try {
+
+        // =====================================================
+        // ESTILOS
+        // =====================================================
+
+        // -----------------------------------------------------
+        // Estilo das células normais
+        // -----------------------------------------------------
+
+        val estiloCelula = workbook.createCellStyle()
+
+        val fonteCelula = workbook.createFont().apply {
+            color = org.apache.poi.ss.usermodel.IndexedColors.BLACK.index
+        }
+
+        estiloCelula.setFont(fonteCelula)
+
+        estiloCelula.fillForegroundColor =
+            org.apache.poi.ss.usermodel.IndexedColors.WHITE.index
+
+        estiloCelula.fillPattern =
+            org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
+
+        estiloCelula.borderTop =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCelula.borderBottom =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCelula.borderLeft =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCelula.borderRight =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCelula.topBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCelula.bottomBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCelula.leftBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCelula.rightBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+
+        // -----------------------------------------------------
+        // Estilo do cabeçalho
+        // -----------------------------------------------------
+
+        val estiloCabecalho = workbook.createCellStyle()
+
+        val fonteCabecalho = workbook.createFont().apply {
+            bold = true
+            color = org.apache.poi.ss.usermodel.IndexedColors.BLACK.index
+        }
+
+        estiloCabecalho.setFont(fonteCabecalho)
+
+        estiloCabecalho.fillForegroundColor =
+            org.apache.poi.ss.usermodel.IndexedColors.WHITE.index
+
+        estiloCabecalho.fillPattern =
+            org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
+
+        estiloCabecalho.borderTop =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCabecalho.borderBottom =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCabecalho.borderLeft =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCabecalho.borderRight =
+            org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+        estiloCabecalho.topBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCabecalho.bottomBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCabecalho.leftBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        estiloCabecalho.rightBorderColor =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+
+        // =====================================================
+        // ABA VISITAS
+        // =====================================================
+
+        val sheet = workbook.createSheet("VISITAS")
+
+        val cabecalhos = listOf(
+            "Ciclo",
+            "Quarteirão",
+            "Rua",
+            "Nº",
+            "Sequência",
+            "Complemento",
+            "Tipo de Imóvel",
+            "Inspecionado",
+            "Pendência",
+            "Foco",
+            "A1 Eliminado",
+            "A2 Eliminado",
+            "B Eliminado",
+            "C Eliminado",
+            "D1 Eliminado",
+            "D2 Eliminado",
+            "E Eliminado",
+            "A1 Tratado",
+            "A2 Tratado",
+            "B Tratado",
+            "C Tratado",
+            "D1 Tratado",
+            "D2 Tratado",
+            "E Tratado",
+            "Larv.(g)",
+            "Observação"
+        )
+
+        // =====================================================
+        // CABEÇALHO
+        // =====================================================
+
+        val linhaCabecalho = sheet.createRow(0)
+
+        cabecalhos.forEachIndexed { indice, titulo ->
+
+            val celula = linhaCabecalho.createCell(indice)
+
+            celula.setCellValue(titulo)
+
+            celula.cellStyle = estiloCabecalho
+        }
+
+
+        // =====================================================
+        // DADOS DAS VISITAS
+        // =====================================================
+
+        visitas.forEachIndexed { indice, visita ->
+
+            val linha = sheet.createRow(indice + 1)
+
+            linha.createCell(0).apply {
+                setCellValue(visita.cicloAno)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(1).apply {
+                setCellValue(visita.quarteirao)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(2).apply {
+                setCellValue(visita.rua)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(3).apply {
+                setCellValue(visita.numero)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(4).apply {
+                setCellValue(visita.sequencia)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(5).apply {
+                setCellValue(visita.complemento)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(6).apply {
+                setCellValue(visita.tipoImovel)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(7).apply {
+                setCellValue(
+                    if (visita.inspecionado) "Sim" else "Não"
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(8).apply {
+                setCellValue(visita.pendencia)
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(9).apply {
+                setCellValue(
+                    if (visita.foco) "Sim" else "Não"
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(10).apply {
+                setCellValue(visita.eliminadosA1.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(11).apply {
+                setCellValue(visita.eliminadosA2.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(12).apply {
+                setCellValue(visita.eliminadosB.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(13).apply {
+                setCellValue(visita.eliminadosC.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(14).apply {
+                setCellValue(visita.eliminadosD1.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(15).apply {
+                setCellValue(visita.eliminadosD2.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(16).apply {
+                setCellValue(visita.eliminadosE.toDouble())
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(17).apply {
+                setCellValue(
+                    visita.tratamento?.a1?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(18).apply {
+                setCellValue(
+                    visita.tratamento?.a2?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(19).apply {
+                setCellValue(
+                    visita.tratamento?.b?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(20).apply {
+                setCellValue(
+                    visita.tratamento?.c?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(21).apply {
+                setCellValue(
+                    visita.tratamento?.d1?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(22).apply {
+                setCellValue(
+                    visita.tratamento?.d2?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(23).apply {
+                setCellValue(
+                    visita.tratamento?.e?.toDouble() ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(24).apply {
+                setCellValue(
+                    visita.tratamento?.gramas ?: 0.0
+                )
+                cellStyle = estiloCelula
+            }
+
+            linha.createCell(25).apply {
+                setCellValue(visita.observacao)
+                cellStyle = estiloCelula
+            }
+        }
+
+
+
+
+        // =====================================================
+        // LARGURA DAS COLUNAS
+        // =====================================================
+
+        val larguras = listOf(
+            10, // Ciclo/Ano
+            15, // Quarteirão
+            35, // Rua
+            10, // Nº
+            12, // Sequência
+            20, // Complemento
+            20, // Tipo do Imóvel
+            15, // Inspecionado
+            20, // Pendência
+            10, // Foco
+            8,  // A1
+            8,  // A2
+            8,  // B
+            8,  // C
+            8,  // D1
+            8,  // D2
+            8,  // E
+            12, // A1 Tratado
+            12, // A2 Tratado
+            12, // B Tratado
+            12, // C Tratado
+            12, // D1 Tratado
+            12, // D2 Tratado
+            12, // E Tratado
+            15, // Larvicida
+            30  // Observação
+        )
+
+        larguras.forEachIndexed { indice, largura ->
+
+            sheet.setColumnWidth(
+                indice,
+                largura * 256
+            )
+        }
+
+        // =====================================================
+        // ABA FECHAMENTO
+        // =====================================================
+
+        val fechamento = workbook.createSheet("FECHAMENTO")
+
+
+        // =====================================================
+        // CONGELA O CABEÇALHO
+        // =====================================================
+
+        sheet.createFreezePane(0, 1)
+
+
+        // =====================================================
+        // SALVA O ARQUIVO
+        // =====================================================
+
+        java.io.FileOutputStream(arquivo).use { outputStream ->
+
+            workbook.write(outputStream)
+
+            outputStream.flush()
+        }
+
+    } finally {
+
+        workbook.close()
+    }
+
+
+    // =====================================================
+    // AVISO
+    // =====================================================
+
+    android.widget.Toast.makeText(
+        context,
+        "Boletim XLSX criado em Downloads",
+        android.widget.Toast.LENGTH_LONG
+    ).show()
 }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -766,6 +2984,10 @@ fun AppACE() {
 
     else if (telaAtual == "rg") {
         TelaRG(
+            agente = nomeAgente,
+            supervisor = supervisorAgente,
+            localidade = localidadeAgente,
+            categoria = categoria,
             ciclo = cicloAno,
             onVoltar = { telaAtual = "inicio" }
         )
@@ -1595,25 +3817,164 @@ fun TelaResumoSemanal(
 
     val totalInspecionados = visitasUteis.count { it.inspecionado }
 
-    val fechadas = visitasUteis.count { it.pendencia.trim().equals("Fechado", ignoreCase = true) }
-    val recusadas = visitasUteis.count { it.pendencia.trim().equals("Recusado", ignoreCase = true) }
-    val abandonadas = visitasUteis.count { it.pendencia.trim().equals("Abandonado", ignoreCase = true) }
+    // ==================== PENDÊNCIAS ====================
 
-    // OUTRAS PENDÊNCIAS (não confundir com outros tipos de imóvel)
-
-    val outrasPendencias = visitasUteis.count { val p = it.pendencia.trim()
-        p.isNotBlank() &&
-        !p.equals("Fechado", ignoreCase = true) &&
-        !p.equals("Recusado", ignoreCase = true) &&
-        !p.equals("Abandonado", ignoreCase = true)
+// FECHADAS
+    val fechadasResidencias = visitasUteis.count {
+        it.pendencia.trim().equals("Fechado", ignoreCase = true) &&
+                it.tipoImovel == "Residência"
     }
 
-    val totalPendencias = fechadas + recusadas + abandonadas + outrasPendencias
+    val fechadasComercios = visitasUteis.count {
+        it.pendencia.trim().equals("Fechado", ignoreCase = true) &&
+                it.tipoImovel == "Comércio"
+    }
+
+    val fechadasTerrenos = visitasUteis.count {
+        it.pendencia.trim().equals("Fechado", ignoreCase = true) &&
+                it.tipoImovel == "Terreno"
+    }
+
+    val fechadasOutros = visitasUteis.count {
+        it.pendencia.trim().equals("Fechado", ignoreCase = true) &&
+                it.tipoImovel != "Residência" &&
+                it.tipoImovel != "Comércio" &&
+                it.tipoImovel != "Terreno" &&
+                it.tipoImovel != "PE"
+    }
+
+    val fechadas = fechadasResidencias +
+            fechadasComercios +
+            fechadasTerrenos +
+            fechadasOutros
+
+
+// RECUSADAS
+    val recusadasResidencias = visitasUteis.count {
+        it.pendencia.trim().equals("Recusado", ignoreCase = true) &&
+                it.tipoImovel == "Residência"
+    }
+
+    val recusadasComercios = visitasUteis.count {
+        it.pendencia.trim().equals("Recusado", ignoreCase = true) &&
+                it.tipoImovel == "Comércio"
+    }
+
+    val recusadasTerrenos = visitasUteis.count {
+        it.pendencia.trim().equals("Recusado", ignoreCase = true) &&
+                it.tipoImovel == "Terreno"
+    }
+
+    val recusadasOutros = visitasUteis.count {
+        it.pendencia.trim().equals("Recusado", ignoreCase = true) &&
+                it.tipoImovel != "Residência" &&
+                it.tipoImovel != "Comércio" &&
+                it.tipoImovel != "Terreno" &&
+                it.tipoImovel != "PE"
+    }
+
+    val recusadas = recusadasResidencias +
+            recusadasComercios +
+            recusadasTerrenos +
+            recusadasOutros
+
+
+    // TOTAL DE PENDÊNCIAS
+    val totalPendencias = fechadas + recusadas
 
     val imoveisComFoco = visitasUteis.count { it.foco }
 
-    val totalEliminados = visitasUteis.sumOf { it.eliminados }
-    val totalTratados = visitasUteis.sumOf { it.tratados }
+    val totalEliminados = visitasUteis.sumOf {
+        it.eliminadosA1 +
+                it.eliminadosA2 +
+                it.eliminadosB +
+                it.eliminadosC +
+                it.eliminadosD1 +
+                it.eliminadosD2 +
+                it.eliminadosE
+    }
+
+    // DEPÓSITOS ELIMINADOS POR TIPO DE IMÓVEL
+
+    val residenciasEliminados = visitasUteis.sumOf {
+        if (it.tipoImovel == "Residência") {
+            it.eliminadosA1 +
+                    it.eliminadosA2 +
+                    it.eliminadosB +
+                    it.eliminadosC +
+                    it.eliminadosD1 +
+                    it.eliminadosD2 +
+                    it.eliminadosE
+        } else 0
+    }
+
+    val comerciosEliminados = visitasUteis.sumOf {
+        if (it.tipoImovel == "Comércio") {
+            it.eliminadosA1 +
+                    it.eliminadosA2 +
+                    it.eliminadosB +
+                    it.eliminadosC +
+                    it.eliminadosD1 +
+                    it.eliminadosD2 +
+                    it.eliminadosE
+        } else 0
+    }
+
+    val terrenosEliminados = visitasUteis.sumOf {
+        if (it.tipoImovel == "Terreno") {
+            it.eliminadosA1 +
+                    it.eliminadosA2 +
+                    it.eliminadosB +
+                    it.eliminadosC +
+                    it.eliminadosD1 +
+                    it.eliminadosD2 +
+                    it.eliminadosE
+        } else 0
+    }
+
+    val outrosEliminados = visitasUteis.sumOf {
+        if (
+            it.tipoImovel != "Residência" &&
+            it.tipoImovel != "Comércio" &&
+            it.tipoImovel != "Terreno" &&
+            it.tipoImovel != "PE"
+        ) {
+            it.eliminadosA1 +
+                    it.eliminadosA2 +
+                    it.eliminadosB +
+                    it.eliminadosC +
+                    it.eliminadosD1 +
+                    it.eliminadosD2 +
+                    it.eliminadosE
+        } else 0
+    }
+
+    //TOTAL DE TRATADOS
+    val totalTratados = visitasUteis.count {
+        it.tratados && it.tipoImovel != "PE"
+    }
+
+    // ==================== IMÓVEIS TRATADOS POR TIPO ====================
+
+    val residenciasTratadas = visitasUteis.count {
+        it.tratados && it.tipoImovel == "Residência"
+    }
+
+    val comerciosTratados = visitasUteis.count {
+        it.tratados && it.tipoImovel == "Comércio"
+    }
+
+    val terrenosTratados = visitasUteis.count {
+        it.tratados && it.tipoImovel == "Terreno"
+    }
+
+    val outrosTratados = visitasUteis.count {
+        it.tratados &&
+                it.tipoImovel != "Residência" &&
+                it.tipoImovel != "Comércio" &&
+                it.tipoImovel != "Terreno" &&
+                it.tipoImovel != "PE"
+    }
 
     val totalA1 = visitasUteis.sumOf { it.a1 }
     val totalA2 = visitasUteis.sumOf { it.a2 }
@@ -1622,6 +3983,165 @@ fun TelaResumoSemanal(
     val totalD1 = visitasUteis.sumOf { it.d1 }
     val totalD2 = visitasUteis.sumOf { it.d2 }
     val totalE = visitasUteis.sumOf { it.e }
+
+    val totalDepositosTratados =
+        totalA1 + totalA2 + totalB + totalC + totalD1 + totalD2 + totalE
+
+    // ==================== TRATAMENTOS POR TIPO DE IMÓVEL ====================
+
+// RESIDÊNCIAS
+    val residenciaA1 = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.a1 }
+
+    val residenciaA2 = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.a2 }
+
+    val residenciaB = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.b }
+
+    val residenciaC = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.c }
+
+    val residenciaD1 = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.d1 }
+
+    val residenciaD2 = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.d2 }
+
+    val residenciaE = visitasUteis
+        .filter { it.tipoImovel == "Residência" }
+        .sumOf { it.e }
+
+
+// COMÉRCIOS
+    val comercioA1 = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.a1 }
+
+    val comercioA2 = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.a2 }
+
+    val comercioB = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.b }
+
+    val comercioC = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.c }
+
+    val comercioD1 = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.d1 }
+
+    val comercioD2 = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.d2 }
+
+    val comercioE = visitasUteis
+        .filter { it.tipoImovel == "Comércio" }
+        .sumOf { it.e }
+
+
+// TERRENOS
+    val terrenoA1 = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.a1 }
+
+    val terrenoA2 = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.a2 }
+
+    val terrenoB = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.b }
+
+    val terrenoC = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.c }
+
+    val terrenoD1 = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.d1 }
+
+    val terrenoD2 = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.d2 }
+
+    val terrenoE = visitasUteis
+        .filter { it.tipoImovel == "Terreno" }
+        .sumOf { it.e }
+
+
+// OUTROS
+    val outrosA1 = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.a1 }
+
+    val outrosA2 = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.a2 }
+
+    val outrosB = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.b }
+
+    val outrosC = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.c }
+
+    val outrosD1 = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.d1 }
+
+    val outrosD2 = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.d2 }
+
+    val outrosE = visitasUteis
+        .filter {
+            it.tipoImovel != "Residência" &&
+                    it.tipoImovel != "Comércio" &&
+                    it.tipoImovel != "Terreno" &&
+                    it.tipoImovel != "PE"
+        }
+        .sumOf { it.e }
 
     val totalGramas = visitasUteis.sumOf { it.larvicidaGramas }
 
@@ -1690,18 +4210,98 @@ fun TelaResumoSemanal(
                 LinhaResumo("Informados", totalInformados.toString())
                 LinhaResumo("Inspecionados", totalInspecionados.toString())
                 LinhaResumo("Com foco", imoveisComFoco.toString())
-                LinhaResumo("Total pendências", totalPendencias.toString())
-                LinhaResumo("• Fechadas", fechadas.toString())
-                LinhaResumo("• Recusadas", recusadas.toString())
-                LinhaResumo("• Abandonadas", abandonadas.toString())
-                LinhaResumo("• Outras pendências", outrasPendencias.toString())
+                LinhaResumo(
+                    titulo = "Fechadas",
+                    valor = fechadas.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Residências fechadas",
+                    valor = fechadasResidencias.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Comércios fechados",
+                    valor = fechadasComercios.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Terrenos fechados",
+                    valor = fechadasTerrenos.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Outros fechados",
+                    valor = fechadasOutros.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "Recusadas",
+                    valor = recusadas.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Residências recusadas",
+                    valor = recusadasResidencias.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Comércios recusados",
+                    valor = recusadasComercios.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Terrenos recusados",
+                    valor = recusadasTerrenos.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Outros recusados",
+                    valor = recusadasOutros.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "Total de pendências",
+                    valor = totalPendencias.toString()
+                )
 
                 Divider(
                     modifier = Modifier.padding(vertical = 12.dp),
                     color = Color(0xFF26304F)
                 )
 
-                LinhaResumo("Depósitos tratados", totalTratados.toString())
+                            //RESUMO TRATADOS
+
+                LinhaResumo(
+                    titulo = "Imóveis tratados",
+                    valor = totalTratados.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Residências tratadas",
+                    valor = residenciasTratadas.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Comércios tratados",
+                    valor = comerciosTratados.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Terrenos tratados",
+                    valor = terrenosTratados.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "  Outros tratados",
+                    valor = outrosTratados.toString()
+                )
+
+                LinhaResumo(
+                    titulo = "Depósitos tratados",
+                    valor = totalDepositosTratados.toString()
+                )
+
                 LinhaResumo("• A1", totalA1.toString())
                 LinhaResumo("• A2", totalA2.toString())
                 LinhaResumo("• B", totalB.toString())
@@ -1712,8 +4312,92 @@ fun TelaResumoSemanal(
                 LinhaResumo(
                     "Larvicida utilizado",
                     String.format(Locale.US, "%.1f g", totalGramas))
+
+                LinhaResumo("RESIDÊNCIAS", "")
+                LinhaResumo("• A1", residenciaA1.toString())
+                LinhaResumo("• A2", residenciaA2.toString())
+                LinhaResumo("• B", residenciaB.toString())
+                LinhaResumo("• C", residenciaC.toString())
+                LinhaResumo("• D1", residenciaD1.toString())
+                LinhaResumo("• D2", residenciaD2.toString())
+                LinhaResumo("• E", residenciaE.toString())
+
+                LinhaResumo("COMÉRCIOS", "")
+                LinhaResumo("• A1", comercioA1.toString())
+                LinhaResumo("• A2", comercioA2.toString())
+                LinhaResumo("• B", comercioB.toString())
+                LinhaResumo("• C", comercioC.toString())
+                LinhaResumo("• D1", comercioD1.toString())
+                LinhaResumo("• D2", comercioD2.toString())
+                LinhaResumo("• E", comercioE.toString())
+
+                LinhaResumo("TERRENOS", "")
+                LinhaResumo("• A1", terrenoA1.toString())
+                LinhaResumo("• A2", terrenoA2.toString())
+                LinhaResumo("• B", terrenoB.toString())
+                LinhaResumo("• C", terrenoC.toString())
+                LinhaResumo("• D1", terrenoD1.toString())
+                LinhaResumo("• D2", terrenoD2.toString())
+                LinhaResumo("• E", terrenoE.toString())
+
+                LinhaResumo("OUTROS", "")
+                LinhaResumo("• A1", outrosA1.toString())
+                LinhaResumo("• A2", outrosA2.toString())
+                LinhaResumo("• B", outrosB.toString())
+                LinhaResumo("• C", outrosC.toString())
+                LinhaResumo("• D1", outrosD1.toString())
+                LinhaResumo("• D2", outrosD2.toString())
+                LinhaResumo("• E", outrosE.toString())
+
+                            //RESUMO DEPOSITOS ELIMINADOS
+
                 LinhaResumo("Depósitos eliminados", totalEliminados.toString()
+
                 )
+
+                LinhaResumo("• A1", totalA1.toString())
+                LinhaResumo("• A2", totalA2.toString())
+                LinhaResumo("• B", totalB.toString())
+                LinhaResumo("• C", totalC.toString())
+                LinhaResumo("• D1", totalD1.toString())
+                LinhaResumo("• D2", totalD2.toString())
+                LinhaResumo("• E", totalE.toString())
+
+                LinhaResumo("RESIDÊNCIAS", "")
+                LinhaResumo("• A1", residenciaA1.toString())
+                LinhaResumo("• A2", residenciaA2.toString())
+                LinhaResumo("• B", residenciaB.toString())
+                LinhaResumo("• C", residenciaC.toString())
+                LinhaResumo("• D1", residenciaD1.toString())
+                LinhaResumo("• D2", residenciaD2.toString())
+                LinhaResumo("• E", residenciaE.toString())
+
+                LinhaResumo("COMÉRCIOS", "")
+                LinhaResumo("• A1", comercioA1.toString())
+                LinhaResumo("• A2", comercioA2.toString())
+                LinhaResumo("• B", comercioB.toString())
+                LinhaResumo("• C", comercioC.toString())
+                LinhaResumo("• D1", comercioD1.toString())
+                LinhaResumo("• D2", comercioD2.toString())
+                LinhaResumo("• E", comercioE.toString())
+
+                LinhaResumo("TERRENOS", "")
+                LinhaResumo("• A1", terrenoA1.toString())
+                LinhaResumo("• A2", terrenoA2.toString())
+                LinhaResumo("• B", terrenoB.toString())
+                LinhaResumo("• C", terrenoC.toString())
+                LinhaResumo("• D1", terrenoD1.toString())
+                LinhaResumo("• D2", terrenoD2.toString())
+                LinhaResumo("• E", terrenoE.toString())
+
+                LinhaResumo("OUTROS", "")
+                LinhaResumo("• A1", outrosA1.toString())
+                LinhaResumo("• A2", outrosA2.toString())
+                LinhaResumo("• B", outrosB.toString())
+                LinhaResumo("• C", outrosC.toString())
+                LinhaResumo("• D1", outrosD1.toString())
+                LinhaResumo("• D2", outrosD2.toString())
+                LinhaResumo("• E", outrosE.toString())
             }
         }
 
@@ -2147,7 +4831,15 @@ fun TelaNovoBoletim(
 
         var foco by remember { mutableStateOf(false) }
 
-        var depositosEliminados by remember { mutableIntStateOf(0) }
+        var eliminadosExpandido by remember { mutableStateOf(false) }
+
+        var eliminadosA1 by remember { mutableIntStateOf(0) }
+        var eliminadosA2 by remember { mutableIntStateOf(0) }
+        var eliminadosB by remember { mutableIntStateOf(0) }
+        var eliminadosC by remember { mutableIntStateOf(0) }
+        var eliminadosD1 by remember { mutableIntStateOf(0) }
+        var eliminadosD2 by remember { mutableIntStateOf(0) }
+        var eliminadosE by remember { mutableIntStateOf(0) }
 
         var tratado by remember { mutableStateOf(false) }
 
@@ -2456,6 +5148,8 @@ fun TelaNovoBoletim(
                             color = Color(0xFFE0DCE8)
                         )
                     }
+
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -2541,8 +5235,7 @@ fun TelaNovoBoletim(
                                 listOf(
                                     "Fechado",
                                     "Recusado",
-                                    "Abandonado",
-                                    "Outros"
+                                    "PE"
                                 ).forEach { item ->
                                     DropdownMenuItem(
                                         text = {
@@ -2566,6 +5259,26 @@ fun TelaNovoBoletim(
 
 
             item { HorizontalDivider() }
+
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = foco,
+                        onCheckedChange = { foco = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Color(0xFF7E57C2),
+                            uncheckedColor = Color(0xFF77738A),
+                            checkmarkColor = Color.White
+                        )
+                    )
+
+                    Text(
+                        text = "Foco encontrado",
+                        color = Color.White
+                    )
+                }
+            }
+
             item {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -2888,41 +5601,40 @@ fun TelaNovoBoletim(
                 }
             }
 
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = foco,
-                        onCheckedChange = { foco = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Color(0xFF7E57C2),
-                            uncheckedColor = Color(0xFF77738A),
-                            checkmarkColor = Color.White
-                        )
-                    )
-
-                    Text(
-                        text = "Foco encontrado",
-                        color = Color.White
-                    )
-                }
-            }
 
             item {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+
+                    val totalEliminados =
+                        eliminadosA1 +
+                                eliminadosA2 +
+                                eliminadosB +
+                                eliminadosC +
+                                eliminadosD1 +
+                                eliminadosD2 +
+                                eliminadosE
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Checkbox(
-                            checked = depositosEliminados > 0,
-                            onCheckedChange = { marcado ->
-                                if (!marcado) {
-                                    depositosEliminados = 0
-                                } else if (depositosEliminados == 0) {
-                                    depositosEliminados = 1
-                                }
-                            },
+                            Checkbox(
+                                checked = eliminadosExpandido,
+                                onCheckedChange = { marcado ->
+
+                                    eliminadosExpandido = marcado
+
+                                    if (!marcado) {
+                                        eliminadosA1 = 0
+                                        eliminadosA2 = 0
+                                        eliminadosB = 0
+                                        eliminadosC = 0
+                                        eliminadosD1 = 0
+                                        eliminadosD2 = 0
+                                        eliminadosE = 0
+                                    }
+                                },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = Color(0xFF7E57C2),
                                 uncheckedColor = Color(0xFF77738A),
@@ -2936,37 +5648,278 @@ fun TelaNovoBoletim(
                         )
                     }
 
-                    if (depositosEliminados > 0) {
-                        Row(
+
+                    if (eliminadosExpandido) {
+
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
-                                onClick = {
-                                    if (depositosEliminados > 1) {
-                                        depositosEliminados--
-                                    } else {
-                                        depositosEliminados = 0
-                                    }
-                                }
+
+                            // A1
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("-")
+                                Text(
+                                    text = "A1",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosA1 > 0) {
+                                            eliminadosA1--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosA1.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosA1++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
                             }
 
-                            Text(
-                                text = depositosEliminados.toString(),
-                                modifier = Modifier.padding(horizontal = 24.dp),
-                                color = Color.White,
-                                style = MaterialTheme.typography.headlineSmall
-                            )
-
-                            Button(
-                                onClick = {
-                                    depositosEliminados++
-                                }
+                            // A2
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("+")
+                                Text(
+                                    text = "A2",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosA2 > 0) {
+                                            eliminadosA2--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosA2.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosA2++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
+
+                            // B
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "B",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosB > 0) {
+                                            eliminadosB--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosB.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosB++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
+
+                            // C
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "C",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosC > 0) {
+                                            eliminadosC--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosC.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosC++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
+
+                            // D1
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "D1",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosD1 > 0) {
+                                            eliminadosD1--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosD1.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosD1++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
+
+                            // D2
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "D2",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosD2 > 0) {
+                                            eliminadosD2--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosD2.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosD2++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
+                            }
+
+                            // E
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "E",
+                                    color = Color.White,
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                Button(
+                                    onClick = {
+                                        if (eliminadosE > 0) {
+                                            eliminadosE--
+                                        }
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+
+                                Text(
+                                    text = eliminadosE.toString(),
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+
+                                Button(
+                                    onClick = {
+                                        eliminadosE++
+                                    }
+                                ) {
+                                    Text("+")
+                                }
                             }
                         }
                     }
@@ -3037,7 +5990,15 @@ fun TelaNovoBoletim(
                                 inspecionado = inspecionado,
                                 pendencia = pendencia,
                                 foco = foco,
-                                depositosEliminados = depositosEliminados,
+
+                                eliminadosA1 = eliminadosA1,
+                                eliminadosA2 = eliminadosA2,
+                                eliminadosB = eliminadosB,
+                                eliminadosC = eliminadosC,
+                                eliminadosD1 = eliminadosD1,
+                                eliminadosD2 = eliminadosD2,
+                                eliminadosE = eliminadosE,
+
                                 tratamento = tratamento,
                                 observacao = observacao
                             )
@@ -3081,7 +6042,14 @@ fun TelaNovoBoletim(
                             sequencia = ""
                             complemento = ""
                             foco = false
-                            depositosEliminados = 0
+                            eliminadosExpandido = false
+                            eliminadosA1 = 0
+                            eliminadosA2 = 0
+                            eliminadosB = 0
+                            eliminadosC = 0
+                            eliminadosD1 = 0
+                            eliminadosD2 = 0
+                            eliminadosE = 0
                             tratado = false
                             a1Tratado = 0
                             a2Tratado = 0
@@ -3147,6 +6115,40 @@ fun TelaNovoBoletim(
                 }
             }
 
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Button(
+                        onClick = {
+
+                            val cabecalho = CabecalhoBoletim(
+                                nome = agente,
+                                supervisor = supervisor,
+                                data = LocalDate.now()
+                                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                                localidade = localidade,
+                                quarteirao = quarteirao,
+                                atividade = atividade,
+                                categoria = categoria,
+                                ciclo = ciclo
+                            )
+
+                            exportarBoletimXlsx(
+                                context = context,
+                                cabecalho = cabecalho,
+                                visitas = visitas
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(0.56f),
+                        shape = RoundedCornerShape(50.dp)
+                    ) {
+                        Text("Testar XLSX")
+                    }
+                }
+            }
+
             item { HorizontalDivider() }
 
             item {
@@ -3180,7 +6182,13 @@ fun TelaNovoBoletim(
                                 inspecionado = visita.inspecionado
                                 pendencia = visita.pendencia
                                 foco = visita.foco
-                                depositosEliminados = visita.depositosEliminados
+                                eliminadosA1 = visita.eliminadosA1
+                                eliminadosA2 = visita.eliminadosA2
+                                eliminadosB = visita.eliminadosB
+                                eliminadosC = visita.eliminadosC
+                                eliminadosD1 = visita.eliminadosD1
+                                eliminadosD2 = visita.eliminadosD2
+                                eliminadosE = visita.eliminadosE
                                 a1Tratado = visita.tratamento?.a1 ?: 0
                                 a2Tratado = visita.tratamento?.a2 ?: 0
                                 bTratado = visita.tratamento?.b ?: 0
@@ -3233,9 +6241,17 @@ fun TelaNovoBoletim(
                             Text("Foco encontrado")
                         }
 
-                        if (visita.depositosEliminados > 0) {
-                            Text("Eliminados: ${visita.depositosEliminados}")
+                        val totalEliminados =
+                            visita.eliminadosA1 +
+                                    visita.eliminadosA2 +
+                                    visita.eliminadosB +
+                                    visita.eliminadosC +
+                                    visita.eliminadosD1 +
+                                    visita.eliminadosD2 +
+                                    visita.eliminadosE
 
+                        if (totalEliminados > 0) {
+                            Text("Eliminados: $totalEliminados")
                         }
 
                         if (visita.observacao.isNotBlank()) {
@@ -3259,6 +6275,7 @@ fun TelaNovoBoletim(
 fun Visita.toEntity(): VisitaEntity {
     return VisitaEntity(
         data = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+        ano = LocalDate.now().year,
         ciclo = cicloAno,
         quarteirao = quarteirao,
         rua = rua,
@@ -3277,8 +6294,17 @@ fun Visita.toEntity(): VisitaEntity {
         d1 = tratamento?.d1 ?: 0,
         d2 = tratamento?.d2 ?: 0,
         e = tratamento?.e ?: 0,
-        eliminados = depositosEliminados,
-        tratados = tratamento?.total ?: 0,
+
+        eliminadosA1 = 0,
+        eliminadosA2 = 0,
+        eliminadosB = 0,
+        eliminadosC = 0,
+        eliminadosD1 = 0,
+        eliminadosD2 = 0,
+        eliminadosE = 0,
+
+        tratados = tratamento != null,
+
         larvicidaGramas = tratamento?.gramas ?: 0.0
 
     )
@@ -3286,6 +6312,10 @@ fun Visita.toEntity(): VisitaEntity {
 
 @Composable
 fun TelaRG(
+    agente: String,
+    supervisor: String,
+    localidade: String,
+    categoria: String,
     ciclo: String,
     onVoltar: () -> Unit
 ) {
@@ -3294,16 +6324,30 @@ fun TelaRG(
     }
 
     val context = LocalContext.current
-
     var visitas by remember {
         mutableStateOf(emptyList<VisitaEntity>())
     }
 
     LaunchedEffect(Unit) {
-        visitas = AppDatabase
+        val todasVisitas = AppDatabase
             .get(context)
             .visitaDao()
-            .listarPorCiclo(ciclo)
+            .listarTodasParaRg()
+
+        visitas = todasVisitas
+            .groupBy {
+                listOf(
+                    it.quarteirao,
+                    it.rua,
+                    it.numero,
+                    it.sequencia,
+                    it.complemento
+                )
+            }
+            .values
+            .mapNotNull { registros ->
+                registros.maxByOrNull { it.id }
+            }
     }
 
     val Bg = Color(0xFF0F172A)
@@ -3383,6 +6427,70 @@ fun TelaRG(
                             color = Color(0xFF00BCD4),
                             fontSize = 14.sp
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                val visitasDoQuarteirao = visitas
+                                    .filter {
+                                        it.quarteirao == quarteirao
+                                    }
+                                    .map {
+                                        Visita(
+                                            cicloAno = it.ciclo,
+                                            quarteirao = it.quarteirao,
+                                            rua = it.rua,
+                                            numero = it.numero,
+                                            sequencia = it.sequencia,
+                                            complemento = it.complemento,
+                                            tipoImovel = it.tipoImovel,
+                                            inspecionado = it.inspecionado,
+                                            pendencia = it.pendencia,
+                                            foco = it.foco,
+                                            eliminadosA1 = it.eliminadosA1,
+                                            eliminadosA2 = it.eliminadosA2,
+                                            eliminadosB = it.eliminadosB,
+                                            eliminadosC = it.eliminadosC,
+                                            eliminadosD1 = it.eliminadosD1,
+                                            eliminadosD2 = it.eliminadosD2,
+                                            eliminadosE = it.eliminadosE,
+                                            tratamento = Tratamento(
+                                                a1 = it.a1,
+                                                a2 = it.a2,
+                                                b = it.b,
+                                                c = it.c,
+                                                d1 = it.d1,
+                                                d2 = it.d2,
+                                                e = it.e,
+                                                gramas = it.larvicidaGramas
+                                            ),
+                                            observacao = ""
+                                        )
+                                    }
+
+                                val cabecalho = CabecalhoBoletim(
+                                    nome = agente,
+                                    supervisor = supervisor,
+                                    data = LocalDate.now().format(
+                                        DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                                    ),
+                                    localidade = localidade,
+                                    quarteirao = quarteirao,
+                                    atividade = "RG",
+                                    categoria = categoria,
+                                    ciclo = ciclo
+                                )
+
+                                gerarRgPdf(
+                                    context = context,
+                                    cabecalho = cabecalho,
+                                    quarteirao = quarteirao,
+                                    visitas = visitasDoQuarteirao
+                                )
+                            }
+                        ) {
+                            Text("Gerar RG")
+                        }
                     }
                 }
             }

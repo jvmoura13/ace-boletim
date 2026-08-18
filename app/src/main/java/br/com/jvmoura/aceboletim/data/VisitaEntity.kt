@@ -9,6 +9,7 @@ data class VisitaEntity(
     val id: Long = 0,
 
     val data: String,
+    val ano: Int,
     val ciclo: String,
     val quarteirao: String,
     val rua: String,
@@ -22,6 +23,7 @@ data class VisitaEntity(
 
     val foco: Boolean,
 
+    // DEPÓSITOS TRATADOS
     val a1: Int,
     val a2: Int,
     val b: Int,
@@ -30,8 +32,17 @@ data class VisitaEntity(
     val d2: Int,
     val e: Int,
 
-    val eliminados: Int,
-    val tratados: Int,
+    // DEPÓSITOS ELIMINADOS
+    val eliminadosA1: Int,
+    val eliminadosA2: Int,
+    val eliminadosB: Int,
+    val eliminadosC: Int,
+    val eliminadosD1: Int,
+    val eliminadosD2: Int,
+    val eliminadosE: Int,
+
+    // INDICA SE HOUVE TRATAMENTO NESTA VISITA
+    val tratados: Boolean,
 
     val larvicidaGramas: Double
 )

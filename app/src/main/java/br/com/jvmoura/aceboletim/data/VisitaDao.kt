@@ -16,8 +16,21 @@ interface VisitaDao {
     @Query("SELECT * FROM visitas")
     suspend fun listarTodas(): List<VisitaEntity>
 
-    @Query("SELECT * FROM visitas WHERE ciclo = :ciclo")
-    suspend fun listarPorCiclo(ciclo: String): List<VisitaEntity>
+    @Query("""
+    SELECT * FROM visitas
+    WHERE ciclo = :ciclo
+    AND ano = :ano
+""")
+    suspend fun listarPorCiclo(
+        ciclo: String,
+        ano: Int
+    ): List<VisitaEntity>
+
+    @Query("""
+    SELECT * FROM visitas
+    ORDER BY id DESC
+""")
+    suspend fun listarTodasParaRg(): List<VisitaEntity>
 
     @Query("DELETE FROM visitas")
     suspend fun limparTudo()
