@@ -20,6 +20,7 @@ interface VisitaDao {
     SELECT * FROM visitas
     WHERE ciclo = :ciclo
     AND ano = :ano
+    ORDER BY id ASC
 """)
     suspend fun listarPorCiclo(
         ciclo: String,
@@ -28,7 +29,7 @@ interface VisitaDao {
 
     @Query("""
     SELECT * FROM visitas
-    ORDER BY id DESC
+    ORDER BY id ASC
 """)
     suspend fun listarTodasParaRg(): List<VisitaEntity>
 

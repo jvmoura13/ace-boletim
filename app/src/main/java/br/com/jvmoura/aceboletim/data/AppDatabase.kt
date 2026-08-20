@@ -6,13 +6,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [VisitaEntity::class],
-    version = 2,
+    entities = [
+        VisitaEntity::class,
+        RgEntity::class
+    ],
+    version = 3,
     exportSchema = false
 )
+
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun visitaDao(): VisitaDao
+
+    abstract fun rgDao(): RgDao
 
     companion object {
         @Volatile

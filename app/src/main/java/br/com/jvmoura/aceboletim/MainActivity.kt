@@ -93,6 +93,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+
 
 
 
@@ -838,7 +841,7 @@ fun gerarBoletimPdf(
                 inspecionadosOutros
 
     desenharTituloResumo(
-        "INSPECIONADOS",
+        "TRABALHADOS",
         350f,
         85f
     )
@@ -1866,6 +1869,7 @@ fun gerarRgPdf(
             "Residência" -> "R"
             "Terreno" -> "TB"
             "Comércio" -> "C"
+            "PE" -> "PE"
             else -> "O"
         }
 
@@ -1884,14 +1888,9 @@ fun gerarRgPdf(
                 ignoreCase = true
             ) -> "R"
 
-            visita.pendencia.contains(
-                "Abandon",
-                ignoreCase = true
-            ) -> "A"
+            visita.pendencia.isNotBlank() -> "PE"
 
-            visita.pendencia.isNotBlank() -> "O"
-
-            else -> ""
+            else -> "--"
         }
 
         paint.style = Paint.Style.FILL
@@ -2011,6 +2010,10 @@ fun gerarRgPdf(
         it.tipoImovel == "Outros"
     }
 
+    val pe = visitas.count {
+        it.tipoImovel == ("PE")
+    }
+
     val pendencias = visitasDoQuarteirao.count {
         it.pendencia.isNotBlank()
     }
@@ -2019,7 +2022,8 @@ fun gerarRgPdf(
         residencias +
                 comercios +
                 terrenos +
-                outros
+                outros +
+                pe
 
 // ============================================================
 // BORDA EXTERNA
@@ -2137,11 +2141,19 @@ fun gerarRgPdf(
 // LADO DIREITO
 // ============================================================
 
+// PE
+    canvas.drawText(
+        "PE: $pe",
+        meioFechamento + margemTexto,
+        fechamentoY + alturaTituloFechamento + 20f,
+        paint
+    )
+
 // Outros
     canvas.drawText(
         "Outros (O): $outros",
         meioFechamento + margemTexto,
-        fechamentoY + alturaTituloFechamento + 20f,
+        fechamentoY + alturaTituloFechamento + 48f,
         paint
     )
 
@@ -2151,7 +2163,7 @@ fun gerarRgPdf(
     canvas.drawText(
         "TOTAL GERAL: $totalGeral",
         meioFechamento + margemTexto,
-        fechamentoY + alturaTituloFechamento + 48f,
+        fechamentoY + alturaTituloFechamento + 76f,
         paint
     )
 
@@ -2616,11 +2628,930 @@ fun exportarBoletimXlsx(
             )
         }
 
-        // =====================================================
-        // ABA FECHAMENTO
-        // =====================================================
+                // =====================================================
+                // ABA FECHAMENTO
+                // =====================================================
 
         val fechamento = workbook.createSheet("FECHAMENTO")
+
+                // =====================================================
+                // INFORMADOS
+                // =====================================================
+
+        val tituloInformados = fechamento.createRow(0)
+
+        tituloInformados.createCell(0).setCellValue("INFORMADOS")
+        tituloInformados.createCell(1).setCellValue("Quantidade")
+
+                // -----------------------------------------------------
+                // Funções auxiliares para classificação
+                // -----------------------------------------------------
+
+        fun ehPEXlsx(tipo: String): Boolean {
+            return tipo.equals("PE", ignoreCase = true)
+        }
+
+        fun ehTerrenoXlsx(tipo: String): Boolean {
+            return tipo.equals("Terreno", ignoreCase = true) ||
+                    tipo.equals("TB", ignoreCase = true)
+        }
+
+        fun ehResidenciaXlsx(tipo: String): Boolean {
+            return tipo.equals("Residência", ignoreCase = true)
+        }
+
+        fun ehComercioXlsx(tipo: String): Boolean {
+            return tipo.equals("Comércio", ignoreCase = true)
+        }
+
+        fun ehOutroXlsx(tipo: String): Boolean {
+            return !ehPEXlsx(tipo) &&
+                    !ehResidenciaXlsx(tipo) &&
+                    !ehComercioXlsx(tipo) &&
+                    !ehTerrenoXlsx(tipo)
+        }
+
+                // -----------------------------------------------------
+                // Quantidade por tipo
+                // -----------------------------------------------------
+
+        fun quantidadeTipoXlsx(tipo: String): Int {
+
+            return visitas.count { visita ->
+
+                !ehPEXlsx(visita.tipoImovel) &&
+
+                        when (tipo) {
+                            "Residência" ->
+                                ehResidenciaXlsx(visita.tipoImovel)
+
+                            "Comércio" ->
+                                ehComercioXlsx(visita.tipoImovel)
+
+                            "TB" ->
+                                ehTerrenoXlsx(visita.tipoImovel)
+
+                            "Outros" ->
+                                ehOutroXlsx(visita.tipoImovel)
+
+                            else -> false
+                        }
+            }
+        }
+
+                // -----------------------------------------------------
+                // Dados
+                // -----------------------------------------------------
+
+        val informados = listOf(
+            "Residência" to quantidadeTipoXlsx("Residência"),
+            "Comércio" to quantidadeTipoXlsx("Comércio"),
+            "Terrenos (TB)" to quantidadeTipoXlsx("TB"),
+            "Outros" to quantidadeTipoXlsx("Outros")
+        )
+
+                // -----------------------------------------------------
+                // Preenche a tabela
+                // -----------------------------------------------------
+
+        informados.forEachIndexed { indice, (tipo, quantidade) ->
+
+            val linha = fechamento.createRow(indice + 1)
+
+            linha.createCell(0).setCellValue(tipo)
+            linha.createCell(1).setCellValue(quantidade.toDouble())
+        }
+
+                // -----------------------------------------------------
+                // TOTAL
+                // -----------------------------------------------------
+
+        val linhaTotalInformados = fechamento.createRow(5)
+
+        linhaTotalInformados.createCell(0).setCellValue("TOTAL")
+
+        linhaTotalInformados.createCell(1).setCellValue(
+            informados.sumOf { it.second }.toDouble()
+        )
+
+                // -----------------------------------------------------
+                // Largura das colunas
+                // -----------------------------------------------------
+
+        fechamento.setColumnWidth(0, 18 * 256)
+        fechamento.setColumnWidth(1, 12 * 256)
+
+        fechamento.setColumnWidth(2, 1 * 256) // espaço
+
+            // =====================================================
+            // INSPECIONADOS
+            // =====================================================
+
+        val tituloInspecionados = fechamento.getRow(0)
+
+        tituloInspecionados.createCell(3).setCellValue("TRABALHADOS")
+        tituloInspecionados.createCell(4).setCellValue("Quantidade")
+
+                // -----------------------------------------------------
+                // Quantidade de inspecionados por tipo
+                // -----------------------------------------------------
+
+        fun inspecionadosTipoXlsx(tipo: String): Int {
+
+            return visitas.count { visita ->
+
+                !ehPEXlsx(visita.tipoImovel) &&
+                        visita.inspecionado &&
+
+                        when (tipo) {
+                            "Residência" ->
+                                ehResidenciaXlsx(visita.tipoImovel)
+
+                            "Comércio" ->
+                                ehComercioXlsx(visita.tipoImovel)
+
+                            "TB" ->
+                                ehTerrenoXlsx(visita.tipoImovel)
+
+                            "Outros" ->
+                                ehOutroXlsx(visita.tipoImovel)
+
+                            else -> false
+                        }
+            }
+        }
+
+                // -----------------------------------------------------
+                // Dados
+                // -----------------------------------------------------
+
+        val inspecionados = listOf(
+            "Residência" to inspecionadosTipoXlsx("Residência"),
+            "Comércio" to inspecionadosTipoXlsx("Comércio"),
+            "Terrenos (TB)" to inspecionadosTipoXlsx("TB"),
+            "Outros" to inspecionadosTipoXlsx("Outros")
+        )
+
+            // -----------------------------------------------------
+            // Preenche a tabela
+            // -----------------------------------------------------
+
+        inspecionados.forEachIndexed { indice, (tipo, quantidade) ->
+
+            val linha = fechamento.getRow(indice + 1)
+                ?: fechamento.createRow(indice + 1)
+
+            linha.createCell(3).setCellValue(tipo)
+            linha.createCell(4).setCellValue(quantidade.toDouble())
+        }
+
+                // -----------------------------------------------------
+                // TOTAL
+                // -----------------------------------------------------
+
+        val linhaTotalInspecionados =
+            fechamento.getRow(5) ?: fechamento.createRow(5)
+
+        linhaTotalInspecionados.createCell(3).setCellValue("TOTAL")
+
+        linhaTotalInspecionados.createCell(4).setCellValue(
+            inspecionados.sumOf { it.second }.toDouble()
+        )
+
+        // =====================================================
+// PENDÊNCIAS
+// =====================================================
+
+// -----------------------------------------------------
+// Função auxiliar para contar pendências por tipo
+// -----------------------------------------------------
+
+        fun pendenciaTipoXlsx(
+            tipo: String,
+            pendencia: String
+        ): Int {
+
+            return visitas.count { visita ->
+
+                !ehPEXlsx(visita.tipoImovel) &&
+
+                        when (tipo) {
+
+                            "Residência" ->
+                                ehResidenciaXlsx(visita.tipoImovel)
+
+                            "Comércio" ->
+                                ehComercioXlsx(visita.tipoImovel)
+
+                            "TB" ->
+                                ehTerrenoXlsx(visita.tipoImovel)
+
+                            "Outros" ->
+                                ehOutroXlsx(visita.tipoImovel)
+
+                            else -> false
+                        } &&
+
+                        visita.pendencia.equals(
+                            pendencia,
+                            ignoreCase = true
+                        )
+            }
+        }
+
+
+// -----------------------------------------------------
+// Cabeçalho
+// -----------------------------------------------------
+
+        val tituloPendencias = fechamento.getRow(0)
+            ?: fechamento.createRow(0)
+
+        tituloPendencias.createCell(6)
+            .setCellValue("PENDÊNCIAS")
+
+        tituloPendencias.createCell(7)
+            .setCellValue("Fechados")
+
+        tituloPendencias.createCell(8)
+            .setCellValue("Recusados")
+
+        tituloPendencias.createCell(9)
+            .setCellValue("Pendências")
+
+
+// -----------------------------------------------------
+// Tipos
+// -----------------------------------------------------
+
+        val tiposPendencias = listOf(
+            "Residência",
+            "Comércio",
+            "TB",
+            "Outros"
+        )
+
+
+// -----------------------------------------------------
+// Preenche a tabela
+// -----------------------------------------------------
+
+        tiposPendencias.forEachIndexed { indice, tipo ->
+
+            val linha = fechamento.getRow(indice + 1)
+                ?: fechamento.createRow(indice + 1)
+
+            val fechados = pendenciaTipoXlsx(
+                tipo = tipo,
+                pendencia = "Fechado"
+            )
+
+            val recusados = pendenciaTipoXlsx(
+                tipo = tipo,
+                pendencia = "Recusado"
+            )
+
+            val totalPendencias = fechados + recusados
+
+            linha.createCell(6)
+                .setCellValue(
+                    when (tipo) {
+                        "TB" -> "Terrenos (TB)"
+                        else -> tipo
+                    }
+                )
+
+            linha.createCell(7)
+                .setCellValue(
+                    fechados.toDouble()
+                )
+
+            linha.createCell(8)
+                .setCellValue(
+                    recusados.toDouble()
+                )
+
+            linha.createCell(9)
+                .setCellValue(
+                    totalPendencias.toDouble()
+                )
+        }
+
+
+// -----------------------------------------------------
+// TOTAL
+// -----------------------------------------------------
+
+        val linhaTotalPendencias = fechamento.getRow(5)
+            ?: fechamento.createRow(5)
+
+        linhaTotalPendencias.createCell(6)
+            .setCellValue("TOTAL")
+
+
+        val totalFechados = tiposPendencias.sumOf { tipo ->
+
+            pendenciaTipoXlsx(
+                tipo = tipo,
+                pendencia = "Fechado"
+            )
+        }
+
+
+        val totalRecusados = tiposPendencias.sumOf { tipo ->
+
+            pendenciaTipoXlsx(
+                tipo = tipo,
+                pendencia = "Recusado"
+            )
+        }
+
+
+        val totalPendencias = totalFechados + totalRecusados
+
+
+        linhaTotalPendencias.createCell(7)
+            .setCellValue(
+                totalFechados.toDouble()
+            )
+
+
+        linhaTotalPendencias.createCell(8)
+            .setCellValue(
+                totalRecusados.toDouble()
+            )
+
+
+        linhaTotalPendencias.createCell(9)
+            .setCellValue(
+                totalPendencias.toDouble()
+            )
+
+
+// -----------------------------------------------------
+// Largura das colunas
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(6, 18 * 256)
+        fechamento.setColumnWidth(7, 12 * 256)
+        fechamento.setColumnWidth(8, 12 * 256)
+        fechamento.setColumnWidth(9, 12 * 256)
+
+        // =====================================================
+// IMÓVEIS TRATADOS
+// =====================================================
+
+// -----------------------------------------------------
+// Quantidade de imóveis tratados por tipo
+// -----------------------------------------------------
+
+        fun tratadosTipoXlsx(tipo: String): Int {
+
+            return visitas.count { visita ->
+
+                !ehPEXlsx(visita.tipoImovel) &&
+
+                        when (tipo) {
+                            "Residência" ->
+                                ehResidenciaXlsx(visita.tipoImovel)
+
+                            "Comércio" ->
+                                ehComercioXlsx(visita.tipoImovel)
+
+                            "TB" ->
+                                ehTerrenoXlsx(visita.tipoImovel)
+
+                            "Outros" ->
+                                ehOutroXlsx(visita.tipoImovel)
+
+                            else -> false
+                        } &&
+
+                        (visita.tratamento?.total ?: 0) > 0
+            }
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        val tratados = listOf(
+            "Residências" to tratadosTipoXlsx("Residência"),
+            "Comércios" to tratadosTipoXlsx("Comércio"),
+            "Terrenos (TB)" to tratadosTipoXlsx("TB"),
+            "Outros" to tratadosTipoXlsx("Outros")
+        )
+
+// -----------------------------------------------------
+// Título
+// -----------------------------------------------------
+
+        val tituloTratados = fechamento.createRow(7)
+
+        tituloTratados.createCell(0).setCellValue("IMÓVEIS TRATADOS")
+        tituloTratados.createCell(1).setCellValue("Tratados")
+
+// -----------------------------------------------------
+// Preenche a tabela
+// -----------------------------------------------------
+
+        tratados.forEachIndexed { indice, (tipo, quantidade) ->
+
+            val linha = fechamento.createRow(indice + 8)
+
+            linha.createCell(0).setCellValue(tipo)
+            linha.createCell(1).setCellValue(quantidade.toDouble())
+        }
+
+// -----------------------------------------------------
+// TOTAL
+// -----------------------------------------------------
+
+        val linhaTotalTratados = fechamento.createRow(12)
+
+        linhaTotalTratados.createCell(0).setCellValue("TOTAL")
+
+        linhaTotalTratados.createCell(1).setCellValue(
+            tratados.sumOf { it.second }.toDouble()
+        )
+
+// -----------------------------------------------------
+// Largura das colunas
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(0, 18 * 256)
+        fechamento.setColumnWidth(1, 12 * 256)
+
+
+
+// =====================================================
+// FOCOS
+// =====================================================
+
+        fun focosTipoXlsx(tipo: String): Int {
+
+            return visitas.count { visita ->
+
+                !ehPEXlsx(visita.tipoImovel) &&
+                        visita.foco &&
+                        when (tipo) {
+
+                            "Residência" ->
+                                ehResidenciaXlsx(visita.tipoImovel)
+
+                            "Comércio" ->
+                                ehComercioXlsx(visita.tipoImovel)
+
+                            "TB" ->
+                                ehTerrenoXlsx(visita.tipoImovel)
+
+                            "Outros" ->
+                                ehOutroXlsx(visita.tipoImovel)
+
+                            else -> false
+                        }
+            }
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        val focos = listOf(
+            "Residências" to focosTipoXlsx("Residência"),
+            "Comércios" to focosTipoXlsx("Comércio"),
+            "Terrenos (TB)" to focosTipoXlsx("TB"),
+            "Outros" to focosTipoXlsx("Outros")
+        )
+
+// -----------------------------------------------------
+// CABEÇALHO
+// -----------------------------------------------------
+
+        val tituloFocos = fechamento.getRow(7)
+            ?: fechamento.createRow(7)
+
+        tituloFocos.createCell(3).setCellValue("FOCOS")
+        tituloFocos.createCell(4).setCellValue("Quantidade")
+
+// -----------------------------------------------------
+// PREENCHE A TABELA
+// -----------------------------------------------------
+
+        focos.forEachIndexed { indice, (tipo, quantidade) ->
+
+            val linha = fechamento.getRow(indice + 8)
+                ?: fechamento.createRow(indice + 8)
+
+            linha.createCell(3).setCellValue(tipo)
+            linha.createCell(4).setCellValue(quantidade.toDouble())
+        }
+
+// -----------------------------------------------------
+// TOTAL
+// -----------------------------------------------------
+
+        val linhaTotalFocos = fechamento.getRow(12)
+            ?: fechamento.createRow(12)
+
+        linhaTotalFocos.createCell(3).setCellValue("TOTAL")
+
+        linhaTotalFocos.createCell(4).setCellValue(
+            focos.sumOf { it.second }.toDouble()
+        )
+
+// -----------------------------------------------------
+// LARGURA DAS COLUNAS
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(3, 18 * 256)
+        fechamento.setColumnWidth(4, 12 * 256)
+
+        // =====================================================
+// DEPÓSITOS TRATADOS
+// =====================================================
+
+        fun depositosTratadosTipoXlsx(
+            tipo: String,
+            deposito: (Tratamento) -> Int
+        ): Int {
+
+            return visitas.sumOf { visita ->
+
+                val tratamento = visita.tratamento
+
+                if (
+                    tratamento == null ||
+                    ehPEXlsx(visita.tipoImovel)
+                ) {
+                    0
+                } else {
+
+                    val pertenceAoTipo = when (tipo) {
+
+                        "Residência" ->
+                            ehResidenciaXlsx(visita.tipoImovel)
+
+                        "Comércio" ->
+                            ehComercioXlsx(visita.tipoImovel)
+
+                        "TB" ->
+                            ehTerrenoXlsx(visita.tipoImovel)
+
+                        "Outros" ->
+                            ehOutroXlsx(visita.tipoImovel)
+
+                        else -> false
+                    }
+
+                    if (pertenceAoTipo) {
+                        deposito(tratamento)
+                    } else {
+                        0
+                    }
+                }
+            }
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        val tiposDepositosTratados = listOf(
+            "Residência",
+            "Comércio",
+            "Terrenos (TB)",
+            "Outros"
+        )
+
+// -----------------------------------------------------
+// Cabeçalho
+// -----------------------------------------------------
+
+        val tituloDepositosTratados = fechamento.getRow(14)
+            ?: fechamento.createRow(14)
+
+        tituloDepositosTratados.createCell(0)
+            .setCellValue("DEPÓSITOS TRATADOS")
+
+        val cabecalhoDepositosTratados = fechamento.getRow(15)
+            ?: fechamento.createRow(15)
+
+        val cabecalhosDepositos = listOf(
+            "Tipo",
+            "A1",
+            "A2",
+            "B",
+            "C",
+            "D1",
+            "D2",
+            "E",
+            "TOTAL"
+        )
+
+        cabecalhosDepositos.forEachIndexed { indice, titulo ->
+            cabecalhoDepositosTratados
+                .createCell(indice)
+                .setCellValue(titulo)
+        }
+
+// -----------------------------------------------------
+// Dados por tipo
+// -----------------------------------------------------
+
+        tiposDepositosTratados.forEachIndexed { indice, tipo ->
+
+            val linha = fechamento.getRow(indice + 16)
+                ?: fechamento.createRow(indice + 16)
+
+            val a1 = depositosTratadosTipoXlsx(tipo) { it.a1 }
+            val a2 = depositosTratadosTipoXlsx(tipo) { it.a2 }
+            val b = depositosTratadosTipoXlsx(tipo) { it.b }
+            val c = depositosTratadosTipoXlsx(tipo) { it.c }
+            val d1 = depositosTratadosTipoXlsx(tipo) { it.d1 }
+            val d2 = depositosTratadosTipoXlsx(tipo) { it.d2 }
+            val e = depositosTratadosTipoXlsx(tipo) { it.e }
+
+            val total = a1 + a2 + b + c + d1 + d2 + e
+
+            linha.createCell(0).setCellValue(
+                if (tipo == "Terrenos (TB)") "TB" else tipo
+            )
+
+            linha.createCell(1).setCellValue(a1.toDouble())
+            linha.createCell(2).setCellValue(a2.toDouble())
+            linha.createCell(3).setCellValue(b.toDouble())
+            linha.createCell(4).setCellValue(c.toDouble())
+            linha.createCell(5).setCellValue(d1.toDouble())
+            linha.createCell(6).setCellValue(d2.toDouble())
+            linha.createCell(7).setCellValue(e.toDouble())
+            linha.createCell(8).setCellValue(total.toDouble())
+        }
+
+
+
+// -----------------------------------------------------
+// GERAL
+// -----------------------------------------------------
+
+        val linhaGeralDepositosTratados = fechamento.getRow(20)
+            ?: fechamento.createRow(20)
+
+        linhaGeralDepositosTratados.createCell(0)
+            .setCellValue("Geral")
+
+        for (coluna in 1..8) {
+
+            val totalColuna = (16..19).sumOf { linha ->
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.numericCellValue
+                    ?.toInt() ?: 0
+            }
+
+            linhaGeralDepositosTratados
+                .createCell(coluna)
+                .setCellValue(totalColuna.toDouble())
+        }
+
+// -----------------------------------------------------
+// Larguras
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(0, 18 * 256)
+        fechamento.setColumnWidth(1, 8 * 256)
+        fechamento.setColumnWidth(2, 8 * 256)
+        fechamento.setColumnWidth(3, 8 * 256)
+        fechamento.setColumnWidth(4, 8 * 256)
+        fechamento.setColumnWidth(5, 8 * 256)
+        fechamento.setColumnWidth(6, 8 * 256)
+        fechamento.setColumnWidth(7, 8 * 256)
+        fechamento.setColumnWidth(8, 10 * 256)
+
+        // =====================================================
+// DEPÓSITOS ELIMINADOS
+// =====================================================
+
+        fun eliminadosTipoXlsx(
+            tipo: String,
+            eliminado: (Visita) -> Int
+        ): Int {
+
+            return visitas.sumOf { visita ->
+
+                if (ehPEXlsx(visita.tipoImovel)) {
+                    0
+                } else {
+
+                    val pertenceAoTipo = when (tipo) {
+
+                        "Residência" ->
+                            ehResidenciaXlsx(visita.tipoImovel)
+
+                        "Comércio" ->
+                            ehComercioXlsx(visita.tipoImovel)
+
+                        "TB" ->
+                            ehTerrenoXlsx(visita.tipoImovel)
+
+                        "Outros" ->
+                            ehOutroXlsx(visita.tipoImovel)
+
+                        else -> false
+                    }
+
+                    if (pertenceAoTipo) {
+                        eliminado(visita)
+                    } else {
+                        0
+                    }
+                }
+            }
+        }
+
+// -----------------------------------------------------
+// Tipos
+// -----------------------------------------------------
+
+        val tiposDepositosEliminados = listOf(
+            "Residência",
+            "Comércio",
+            "TB",
+            "Outros"
+        )
+
+// -----------------------------------------------------
+// Cabeçalho
+// -----------------------------------------------------
+
+        val tituloDepositosEliminados = fechamento.getRow(22)
+            ?: fechamento.createRow(22)
+
+        tituloDepositosEliminados
+            .createCell(0)
+            .setCellValue("DEPÓSITOS ELIMINADOS")
+
+// -----------------------------------------------------
+// Cabeçalhos das colunas
+// -----------------------------------------------------
+
+        val cabecalhoDepositosEliminados = fechamento.getRow(23)
+            ?: fechamento.createRow(23)
+
+        val cabecalhosEliminados = listOf(
+            "Tipo",
+            "A1",
+            "A2",
+            "B",
+            "C",
+            "D1",
+            "D2",
+            "E",
+            "TOTAL"
+        )
+
+        cabecalhosEliminados.forEachIndexed { indice, titulo ->
+
+            cabecalhoDepositosEliminados
+                .createCell(indice)
+                .setCellValue(titulo)
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        tiposDepositosEliminados.forEachIndexed { indice, tipo ->
+
+            val linha = fechamento.getRow(indice + 24)
+                ?: fechamento.createRow(indice + 24)
+
+            val a1 = eliminadosTipoXlsx(tipo) { it.eliminadosA1 }
+            val a2 = eliminadosTipoXlsx(tipo) { it.eliminadosA2 }
+            val b = eliminadosTipoXlsx(tipo) { it.eliminadosB }
+            val c = eliminadosTipoXlsx(tipo) { it.eliminadosC }
+            val d1 = eliminadosTipoXlsx(tipo) { it.eliminadosD1 }
+            val d2 = eliminadosTipoXlsx(tipo) { it.eliminadosD2 }
+            val e = eliminadosTipoXlsx(tipo) { it.eliminadosE }
+
+            val total = a1 + a2 + b + c + d1 + d2 + e
+
+            linha.createCell(0)
+                .setCellValue(
+                    if (tipo == "Residência") {
+                        "Residência"
+                    } else {
+                        tipo
+                    }
+                )
+
+            linha.createCell(1).setCellValue(a1.toDouble())
+            linha.createCell(2).setCellValue(a2.toDouble())
+            linha.createCell(3).setCellValue(b.toDouble())
+            linha.createCell(4).setCellValue(c.toDouble())
+            linha.createCell(5).setCellValue(d1.toDouble())
+            linha.createCell(6).setCellValue(d2.toDouble())
+            linha.createCell(7).setCellValue(e.toDouble())
+            linha.createCell(8).setCellValue(total.toDouble())
+        }
+
+// -----------------------------------------------------
+// GERAL
+// -----------------------------------------------------
+
+        val linhaGeralEliminados = fechamento.getRow(28)
+            ?: fechamento.createRow(28)
+
+        linhaGeralEliminados
+            .createCell(0)
+            .setCellValue("Geral")
+
+        for (coluna in 1..8) {
+
+            val totalColuna = (24..27).sumOf { numeroLinha ->
+
+                fechamento
+                    .getRow(numeroLinha)
+                    ?.getCell(coluna)
+                    ?.numericCellValue
+                    ?.toInt()
+                    ?: 0
+            }
+
+            linhaGeralEliminados
+                .createCell(coluna)
+                .setCellValue(totalColuna.toDouble())
+        }
+
+// -----------------------------------------------------
+// Largura das colunas
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(0, 18 * 256)
+        fechamento.setColumnWidth(1, 8 * 256)
+        fechamento.setColumnWidth(2, 8 * 256)
+        fechamento.setColumnWidth(3, 8 * 256)
+        fechamento.setColumnWidth(4, 8 * 256)
+        fechamento.setColumnWidth(5, 8 * 256)
+        fechamento.setColumnWidth(6, 8 * 256)
+        fechamento.setColumnWidth(7, 8 * 256)
+        fechamento.setColumnWidth(8, 10 * 256)
+
+        // =====================================================
+// LARVICIDA UTILIZADO
+// =====================================================
+
+// Pega a quantidade total de larvicida utilizada
+        val totalLarvicida = visitas
+            .filter { !ehPEXlsx(it.tipoImovel) }
+            .sumOf { it.tratamento?.gramas ?: 0.0 }
+
+// -----------------------------------------------------
+// Título
+// -----------------------------------------------------
+
+        val linhaTituloLarvicida = fechamento.createRow(
+            fechamento.lastRowNum + 2
+        )
+
+        linhaTituloLarvicida.createCell(0)
+            .setCellValue("LARVICIDA UTILIZADO")
+
+// -----------------------------------------------------
+// Cabeçalho
+// -----------------------------------------------------
+
+        val linhaCabecalhoLarvicida = fechamento.createRow(
+            linhaTituloLarvicida.rowNum + 1
+        )
+
+        linhaCabecalhoLarvicida.createCell(0)
+            .setCellValue("Informação")
+
+        linhaCabecalhoLarvicida.createCell(1)
+            .setCellValue("Quantidade")
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        val linhaLarvicida = fechamento.createRow(
+            linhaCabecalhoLarvicida.rowNum + 1
+        )
+
+        linhaLarvicida.createCell(0)
+            .setCellValue("Larvicida utilizado")
+
+        linhaLarvicida.createCell(1)
+            .setCellValue("${totalLarvicida} g")
+
+// -----------------------------------------------------
+// Largura das colunas
+// -----------------------------------------------------
+
+        fechamento.setColumnWidth(0, 22 * 256)
+        fechamento.setColumnWidth(1, 15 * 256)
+
 
 
         // =====================================================
@@ -2628,6 +3559,429 @@ fun exportarBoletimXlsx(
         // =====================================================
 
         sheet.createFreezePane(0, 1)
+
+        // =====================================================
+// ESTILIZAÇÃO DO FECHAMENTO
+// =====================================================
+
+// -----------------------------------------------------
+// CORES
+// -----------------------------------------------------
+
+        val corVerdeFechamento =
+            org.apache.poi.ss.usermodel.IndexedColors.GREEN.index
+
+        val corBrancoFechamento =
+            org.apache.poi.ss.usermodel.IndexedColors.WHITE.index
+
+        val corPretoFechamento =
+            org.apache.poi.ss.usermodel.IndexedColors.BLACK.index
+
+
+// =====================================================
+// FONTES
+// =====================================================
+
+        val fonteNormalFechamento = workbook.createFont().apply {
+            fontName = "Arial"
+            fontHeightInPoints = 9
+            color = corPretoFechamento
+        }
+
+        val fonteNegritoFechamento = workbook.createFont().apply {
+            fontName = "Arial"
+            fontHeightInPoints = 9
+            bold = true
+            color = corPretoFechamento
+        }
+
+
+// =====================================================
+// ESTILO — CÉLULA NORMAL
+// =====================================================
+
+        val estiloCelulaFechamentoNovo = workbook.createCellStyle().apply {
+
+            setFont(fonteNormalFechamento)
+
+            fillForegroundColor = corBrancoFechamento
+            fillPattern =
+                org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
+
+            borderTop =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderBottom =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderLeft =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderRight =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            topBorderColor = corVerdeFechamento
+            bottomBorderColor = corVerdeFechamento
+            leftBorderColor = corVerdeFechamento
+            rightBorderColor = corVerdeFechamento
+
+            verticalAlignment =
+                org.apache.poi.ss.usermodel.VerticalAlignment.CENTER
+        }
+
+
+// =====================================================
+// ESTILO — TÍTULO
+// =====================================================
+
+        val estiloTituloFechamentoNovo = workbook.createCellStyle().apply {
+
+            setFont(fonteNegritoFechamento)
+
+            fillForegroundColor = corBrancoFechamento
+            fillPattern =
+                org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
+
+            borderTop =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderBottom =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderLeft =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderRight =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            topBorderColor = corVerdeFechamento
+            bottomBorderColor = corVerdeFechamento
+            leftBorderColor = corVerdeFechamento
+            rightBorderColor = corVerdeFechamento
+
+            alignment =
+                org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER
+
+            verticalAlignment =
+                org.apache.poi.ss.usermodel.VerticalAlignment.CENTER
+        }
+
+
+// =====================================================
+// ESTILO — TOTAL
+// =====================================================
+
+        val estiloTotalFechamentoNovo = workbook.createCellStyle().apply {
+
+            setFont(fonteNegritoFechamento)
+
+            fillForegroundColor = corBrancoFechamento
+            fillPattern =
+                org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND
+
+            borderTop =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderBottom =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderLeft =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            borderRight =
+                org.apache.poi.ss.usermodel.BorderStyle.THIN
+
+            topBorderColor = corVerdeFechamento
+            bottomBorderColor = corVerdeFechamento
+            leftBorderColor = corVerdeFechamento
+            rightBorderColor = corVerdeFechamento
+
+            verticalAlignment =
+                org.apache.poi.ss.usermodel.VerticalAlignment.CENTER
+        }
+
+
+// =====================================================
+// INFORMADOS — A:B
+// =====================================================
+
+// Título
+        for (coluna in 0..1) {
+            fechamento.getRow(0)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTituloFechamentoNovo
+        }
+
+// Dados
+        for (linha in 1..4) {
+            for (coluna in 0..1) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.cellStyle = estiloCelulaFechamentoNovo
+            }
+        }
+
+// Total
+        for (coluna in 0..1) {
+            fechamento.getRow(5)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTotalFechamentoNovo
+        }
+
+
+// =====================================================
+// INSPECIONADOS — D:E
+// =====================================================
+
+// Título
+        for (coluna in 3..4) {
+            fechamento.getRow(0)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTituloFechamentoNovo
+        }
+
+// Dados
+        for (linha in 1..4) {
+            for (coluna in 3..4) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.cellStyle = estiloCelulaFechamentoNovo
+            }
+        }
+
+// Total
+        for (coluna in 3..4) {
+            fechamento.getRow(5)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTotalFechamentoNovo
+        }
+
+        // =====================================================
+// IMÓVEIS TRATADOS - A:B
+// =====================================================
+
+// -----------------------------------------------------
+// Título
+// -----------------------------------------------------
+
+        for (coluna in 0..1) {
+            fechamento.getRow(7)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        for (linha in 8..11) {
+            for (coluna in 0..1) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.let { celula ->
+                        celula.cellStyle = estiloCelulaFechamentoNovo
+                    }
+            }
+        }
+
+// -----------------------------------------------------
+// Total
+// -----------------------------------------------------
+
+        for (coluna in 0..1) {
+            fechamento.getRow(12)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTotalFechamentoNovo
+                }
+        }
+
+        // =====================================================
+// FOCOS - D:E
+// =====================================================
+
+// -----------------------------------------------------
+// Título
+// -----------------------------------------------------
+
+        for (coluna in 3..4) {
+            fechamento.getRow(7)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// -----------------------------------------------------
+// Dados
+// -----------------------------------------------------
+
+        for (linha in 8..11) {
+            for (coluna in 3..4) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.let { celula ->
+                        celula.cellStyle = estiloCelulaFechamentoNovo
+                    }
+            }
+        }
+
+// -----------------------------------------------------
+// Total
+// -----------------------------------------------------
+
+        for (coluna in 3..4) {
+            fechamento.getRow(12)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTotalFechamentoNovo
+                }
+        }
+
+
+// =====================================================
+// PENDÊNCIAS — G:J
+// =====================================================
+
+// Título
+        for (coluna in 6..9) {
+            fechamento.getRow(0)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTituloFechamentoNovo
+        }
+
+// Dados
+        for (linha in 1..4) {
+            for (coluna in 6..9) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.cellStyle = estiloCelulaFechamentoNovo
+            }
+        }
+
+// Total
+        for (coluna in 6..9) {
+            fechamento.getRow(5)
+                ?.getCell(coluna)
+                ?.cellStyle = estiloTotalFechamentoNovo
+        }
+
+        // ============================================================
+// ESTILO — DEPÓSITOS TRATADOS
+// ============================================================
+
+// Título
+        for (coluna in 0..8) {
+            fechamento.getRow(14)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Cabeçalho
+        for (coluna in 0..8) {
+            fechamento.getRow(15)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Dados
+        for (linha in 16..19) {
+            for (coluna in 0..8) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.let { celula ->
+                        celula.cellStyle = estiloCelulaFechamentoNovo
+                    }
+            }
+        }
+
+// Total / Geral
+        for (coluna in 0..8) {
+            fechamento.getRow(20)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTotalFechamentoNovo
+                }
+        }
+
+        // ============================================================
+// ESTILO — DEPÓSITOS ELIMINADOS
+// ============================================================
+
+// Título
+        for (coluna in 0..8) {
+            fechamento.getRow(22)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Cabeçalho
+        for (coluna in 0..8) {
+            fechamento.getRow(23)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Dados
+        for (linha in 24..27) {
+            for (coluna in 0..8) {
+                fechamento.getRow(linha)
+                    ?.getCell(coluna)
+                    ?.let { celula ->
+                        celula.cellStyle = estiloCelulaFechamentoNovo
+                    }
+            }
+        }
+
+// Total / Geral
+        for (coluna in 0..8) {
+            fechamento.getRow(28)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTotalFechamentoNovo
+                }
+        }
+
+        // ============================================================
+// ESTILO — LARVICIDA UTILIZADO
+// ============================================================
+
+// Título
+        for (coluna in 0..1) {
+            fechamento.getRow(30)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Cabeçalho
+        for (coluna in 0..1) {
+            fechamento.getRow(31)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloTituloFechamentoNovo
+                }
+        }
+
+// Dados
+        for (coluna in 0..1) {
+            fechamento.getRow(32)
+                ?.getCell(coluna)
+                ?.let { celula ->
+                    celula.cellStyle = estiloCelulaFechamentoNovo
+                }
+        }
 
 
         // =====================================================
@@ -2807,7 +4161,8 @@ fun AppACE() {
     var boletimIniciado by remember { mutableStateOf(false) }
     var atividade by remember { mutableStateOf("Tratamento") }
     var categoria by remember { mutableStateOf("Bairro") }
-    var cicloAno by remember { mutableStateOf("") }
+    var cicloAno = (((LocalDate.now().monthValue - 1) / 2) + 1).toString()
+    var quarteirao by remember { mutableStateOf("") }
     var local by remember { mutableStateOf("") }
     var agente by remember { mutableStateOf("") }
     var supervisor by remember { mutableStateOf("") }
@@ -2964,6 +4319,11 @@ fun AppACE() {
             cicloAno = cicloAno,
             onCicloChange = {
                 cicloAno = it
+            },
+
+            quarteirao = quarteirao,
+            onQuarteiraoChange = {
+                quarteirao = it
             },
 
             onIniciar = {
@@ -4455,6 +5815,8 @@ fun TelaNovoBoletim(
     onLocalChange: (String) -> Unit,
     cicloAno: String,
     onCicloChange: (String) -> Unit,
+    quarteirao: String,
+    onQuarteiraoChange: (String) -> Unit,
     onIniciar: () -> Unit,
     onVoltar: () -> Unit
 ) {
@@ -4467,6 +5829,8 @@ fun TelaNovoBoletim(
     var categoriaExpanded by remember { mutableStateOf(false) }
     var mostrarErro by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val dataAtual = remember {
         LocalDate.now().format(
             DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -4550,7 +5914,8 @@ fun TelaNovoBoletim(
                     onValueChange = onLocalChange,
                     label = { Text("Localidade") },
                     shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier.weight(0.9f),
+                    modifier = Modifier
+                        .width(210.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
@@ -4580,7 +5945,7 @@ fun TelaNovoBoletim(
                         },
                         modifier = Modifier
                             .menuAnchor()
-                            .width(113.dp)
+                            .width(118.dp)
                     )
                     ExposedDropdownMenu(
                         expanded = categoriaExpanded,
@@ -4631,7 +5996,7 @@ fun TelaNovoBoletim(
                         },
                         modifier = Modifier
                             .menuAnchor()
-                            .width(157.dp)
+                            .width(165.dp)
                     )
                     ExposedDropdownMenu(
                         expanded = atividadeExpanded,
@@ -4639,7 +6004,14 @@ fun TelaNovoBoletim(
                             atividadeExpanded = false
                         }
                     ) {
-                        listOf("Tratamento", "Ação").forEach {
+                        listOf("Tratamento",
+                            "Ação 1ª V",
+                            "Ação 2ª V",
+                            "Ação 3ª V",
+                            "Ação 4ª V",
+                            "Ação 5ª V",
+                            "Ação Bloq."
+                        ).forEach {
                             DropdownMenuItem(
                                 text = { Text(it) },
                                 onClick = {
@@ -4651,86 +6023,63 @@ fun TelaNovoBoletim(
                     }
                 }
 
-                var cicloExpandido by remember { mutableStateOf(false) }
+                OutlinedTextField(
+                    value = quarteirao,
+                    onValueChange = onQuarteiraoChange,
+                    label = {
+                        Text("Quarteirão")
+                    },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
 
-                ExposedDropdownMenuBox(
-                    expanded = cicloExpandido,
-                    onExpandedChange = {
-                        cicloExpandido = !cicloExpandido
-                    }
-                ) {
-
-                    OutlinedTextField(
-                        value = when (cicloAno) {
-                            "1" -> "1º"
-                            "2" -> "2º"
-                            "3" -> "3º"
-                            "4" -> "4º"
-                            "5" -> "5º"
-                            "6" -> "6º"
-                            else -> ""
-                        },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Ciclo") },
-
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(
-                                expanded = cicloExpandido
-                            )
-                        },
-
-                        shape = RoundedCornerShape(30.dp),
-                        colors = campoColors,
-
-                        modifier = Modifier
-                            .width(120.dp)
-                            .menuAnchor()
-                    )
-
-                    ExposedDropdownMenu(
-                        expanded = cicloExpandido,
-                        onDismissRequest = {
-                            cicloExpandido = false
-                        }
-                    ) {
-
-                        listOf(
-                            "1º",
-                            "2º",
-                            "3º",
-                            "4º",
-                            "5º",
-                            "6º"
-                        ).forEachIndexed { index, ciclo ->
-
-                            DropdownMenuItem(
-                                text = {
-                                    Text(ciclo)
-                                },
-                                onClick = {
-                                    onCicloChange((index + 1).toString())
-                                    cicloExpandido = false
-                                }
-                            )
-                        }
-                    }
-                }
+                    modifier = Modifier
+                        .width(125.dp),
+                    singleLine = true
+                )
 
             }
         }
 
         item {
-            OutlinedTextField(
-                value = dataAtual,
-                onValueChange = {},
-                readOnly = true,
-                shape = RoundedCornerShape(30.dp),
-                colors = campoColors,
-                modifier = Modifier.width(120.dp)
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
 
+                OutlinedTextField(
+                    value = dataAtual,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Data") },
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
+                    modifier = Modifier.width(165.dp)
+                )
+
+                OutlinedTextField(
+                    value = when (cicloAno) {
+                        "1" -> "1º"
+                        "2" -> "2º"
+                        "3" -> "3º"
+                        "4" -> "4º"
+                        "5" -> "5º"
+                        "6" -> "6º"
+                        else -> ""
+                    },
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Ciclo") },
+
+                    shape = RoundedCornerShape(30.dp),
+                    colors = campoColors,
+
+                    modifier = Modifier
+                        .width(125.dp)
+                )
+
+            }
+        }
 
         item {
             if (mostrarErro) {
@@ -4757,12 +6106,36 @@ fun TelaNovoBoletim(
                             local.trim().isEmpty() ||
                             agente.trim().isEmpty() ||
                             supervisor.trim().isEmpty() ||
-                            cicloAno.trim().isEmpty()
+                            cicloAno.trim().isEmpty() ||
+                            quarteirao.trim().isEmpty()
                         ) {
                             mostrarErro = true
                         } else {
-                            mostrarErro = false
-                            onIniciar()
+
+                            scope.launch {
+
+                                if (atividade == "Tratamento") {
+
+                                    val anoAtual = LocalDate.now().year
+
+                                    val rgFinalizado = AppDatabase
+                                        .get(context)
+                                        .rgDao()
+                                        .estaFinalizado(
+                                            ano = anoAtual,
+                                            ciclo = cicloAno,
+                                            quarteirao = quarteirao.trim()
+                                        ) == true
+
+                                    if (rgFinalizado) {
+                                        mostrarErro = true
+                                        return@launch
+                                    }
+                                }
+
+                                mostrarErro = false
+                                onIniciar()
+                            }
                         }
                     },
                     modifier = Modifier
@@ -5108,6 +6481,36 @@ fun TelaNovoBoletim(
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = tipoImovel == "Outros",
+                            borderColor = Color(0xFF77738A),
+                            selectedBorderColor = Color(0xFF9C6CFF),
+                            borderWidth = 1.dp,
+                            selectedBorderWidth = 2.dp
+                        )
+                    )
+
+                    FilterChip(
+                        selected = tipoImovel == "PE",
+                        onClick = { tipoImovel = "PE" },
+
+                        label = {
+                            Text(
+                                text = "PE",
+                                color = Color.White
+                            )
+                        },
+
+                        shape = RoundedCornerShape(size = 50.dp),
+
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            labelColor = Color(0xFFFDC08D),
+                            selectedContainerColor = Color(0xFFE53A9E),
+                            selectedLabelColor = Color.White
+                        ),
+
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = tipoImovel == "PE",
                             borderColor = Color(0xFF77738A),
                             selectedBorderColor = Color(0xFF9C6CFF),
                             borderWidth = 1.dp,
